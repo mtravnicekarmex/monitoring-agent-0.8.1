@@ -1,0 +1,75 @@
+{
+  "authentication": "local-dotenv-bearer-to-digest-verified-facade",
+  "bundle_name": "monitoring-agent",
+  "bundle_version": "0.8.1-test",
+  "created_date": "2026-08-06",
+  "files": [
+    {
+      "path": ".env.example",
+      "sha256": "9422bce0b709a63c16568b0ed797d1febecf4df034f577343f824afbcb10f599",
+      "size": 916
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "e4924a6e050e0769863bab798e453493383ceeb636727ca2210cf24d70c45470",
+      "size": 95
+    },
+    {
+      "path": "run_monitoring_agent.py",
+      "sha256": "a705d1861a06b37ed3c759c3332dc270a37bfd712d132a467daa518393092d6d",
+      "size": 236
+    },
+    {
+      "path": "register_monitoring_agent_task.ps1",
+      "sha256": "1bdb8e02e716c97f580cb1a0101ac8bfa0c58d385f09bccd0e9527683f7a330d",
+      "size": 1990
+    },
+    {
+      "path": "monitoring_agent/__init__.py",
+      "sha256": "64b0423c8e49175368b401d94dc13a5b11140d1287bf78a47e92468125ac0f44",
+      "size": 454
+    },
+    {
+      "path": "monitoring_agent/__main__.py",
+      "sha256": "4af4972369034fe16570447784c0b1e7478a6e9581f35793fc35fef15bca6610",
+      "size": 5703
+    },
+    {
+      "path": "monitoring_agent/audit.py",
+      "sha256": "d3b9227615ffdc473316eec9a1740e4bf3a571ac409aa6dd29e0e01f02ab9043",
+      "size": 50305
+    },
+    {
+      "path": "monitoring_agent/client.py",
+      "sha256": "16f544ee9b3887f8820ae504c9c587c5b8410cc846efa90ff277115f0370ebc6",
+      "size": 41860
+    },
+    {
+      "path": "monitoring_agent/observer.py",
+      "sha256": "bf70208f4eb2b3ab3d237c71d216e80978aa9a7af7ef7697fc5640e32fd2a0ce",
+      "size": 1704
+    },
+    {
+      "path": "monitoring_agent/README.md",
+      "sha256": "778eb1e7a7ad81fd4d20a6a65ac6063c0949a044d6304ac9d8b7790709ca8891",
+      "size": 12551
+    },
+    {
+      "path": "monitoring_agent/settings.py",
+      "sha256": "a34fa716dbe0a4773a6dcacc0179f347715a3fb773f4d49b35edbe1e9069ddd0",
+      "size": 9461
+    },
+    {
+      "path": "monitoring_agent/store.py",
+      "sha256": "3b8c3b2db539cb7b78a9cf627d37193b04ec30ab91657ecbc236f1422a7493a5",
+      "size": 7436
+    },
+    {
+      "path": "monitoring_agent/synthetic_server.py",
+      "sha256": "54388c32aded9ab9830c2e569a056e2ffde33c17e1d22b5b0dd392a41b6a570c",
+      "size": 10823
+    }
+  ],
+  "mode": "test",
+  "python": ">=3.14"
+}
