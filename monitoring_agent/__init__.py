@@ -28,6 +28,14 @@ from .incident_store import (
     IncidentStoreError,
     IncidentStoreLimits,
 )
+from .interpretation import (
+    InterpretationPolicy,
+    InterpretationProviderOutput,
+    InterpretationRequest,
+    InterpretationResult,
+    build_interpretation_prompt,
+    interpret_confirmed_incidents,
+)
 from .observer import run_observation_cycle
 from .reporting import (
     MonitoringReportSnapshot,
@@ -52,6 +60,10 @@ __all__ = [
     "IncidentStateStore",
     "IncidentStoreError",
     "IncidentStoreLimits",
+    "InterpretationPolicy",
+    "InterpretationProviderOutput",
+    "InterpretationRequest",
+    "InterpretationResult",
     "IncidentRules",
     "MonitoringReportSnapshot",
     "ObserverStore",
@@ -65,12 +77,14 @@ __all__ = [
     "deliver_due_test_delivery_intents",
     "build_state_audit",
     "build_monitoring_report_snapshot",
+    "build_interpretation_prompt",
     "evaluate_incident_lifecycle",
     "hash_delivery_recipient",
     "normalize_delivery_recipient",
     "redact_monitoring_text",
     "render_monitoring_report",
     "render_programming_agent_prompt",
+    "interpret_confirmed_incidents",
     "send_email_outlook",
     "validate_outlook_email_environment",
     "validate_test_delivery_policy",

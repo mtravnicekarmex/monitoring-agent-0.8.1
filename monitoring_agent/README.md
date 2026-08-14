@@ -1,10 +1,12 @@
 # Monitoring agent test project
 
-This is the independent read-only observer for `OPS-002`. The test bundle is
+This is the independent read-only observer for `OPS-002`. The test project is
 designed to be opened and managed as its own small PyCharm project on the
-remote supervision workstation. It is not registered for automatic startup
-by extraction alone and does not replace existing scheduler alerts. An
-existing reviewed Scheduled Task may be upgraded only through the separate
+remote supervision workstation. It may be transferred as a reviewed bundle or,
+for fast test-stage iteration after 2026-08-14, updated through the standalone
+Git repository. It is not registered for automatic startup by extraction or
+Git pull alone and does not replace existing scheduler alerts. An existing
+reviewed Scheduled Task may be upgraded only through the separate
 stop/configure/verify/start procedure.
 
 ## Project contract
@@ -19,6 +21,36 @@ The remote project contains:
 - `.gitignore`, which excludes the real `.env`, PyCharm state, Python caches,
   virtual environments, and local agent state;
 - bundle manifests for offline integrity verification.
+
+## Test-stage Git iteration workflow
+
+The active test-stage repository is:
+
+```text
+https://github.com/mtravnicekarmex/monitoring-agent-0.8.1.git
+```
+
+For test iterations, the supervision station treats the pulled Git commit hash
+as the active checkout identity. Commit
+`5cfc5916d3e83cdcc1eecd34f3f2719d62ec351c` contains the item 2-5 candidate
+source, including incident rules, bounded incident/outbox state, pure
+report/prompt rendering, and the `O_EMAIL`/`O_APP`/
+`DELIVERY_TEST_RECIPIENT` test-only delivery path.
+
+Before pulling changed source on the supervision station:
+
+1. Stop `MonitoringAgentTest`.
+2. Run `git pull` in the standalone project checkout.
+3. Verify the active identity with `git rev-parse HEAD`.
+4. Run `py -3.14 run_monitoring_agent.py --check-config`.
+5. Start `MonitoringAgentTest`.
+6. Verify with `py -3.14 run_monitoring_agent.py --audit-state`.
+
+Do not change source beneath a running Scheduled Task process. The real `.env`
+and state files remain local to the supervision station and must not be
+committed, printed, copied into reports, or packaged. The original 0.8.1 ZIP
+identity remains historical release evidence only until a new reviewed release
+bundle is explicitly built.
 
 The real `.env` exists only on the supervision workstation. It contains all
 runtime values, including the private HTTPS base URL, public page root URL,
@@ -251,6 +283,45 @@ private identifiers. Redaction is a safety net, not a license to pass raw
 credentials, raw `.env`, raw endpoint bodies, recipients, or private runtime
 state into report inputs.
 
+## Agentic interpretation contract
+
+`monitoring_agent/interpretation.py` adds interpretation contract version 1 as
+a pure layer above confirmed normalized incidents. It is not wired into the
+polling loop, does not read `.env`, does not contact a model provider by
+itself, and cannot mutate the monitored application, incident state, outbox,
+delivery state, scheduler alerts, services, or processes.
+
+Interpretation is gated by an explicit in-memory `InterpretationPolicy`.
+Current item-6 source supports only:
+
+- `enabled=False`, which returns the deterministic report fallback without
+  calling any provider;
+- `enabled=True` with `mode="draft"`, an injected provider object, provider
+  name, model name, timeout, prompt/output size bounds, item-count bounds, and
+  a cost ceiling.
+
+Every permission-style flag in the policy must remain false:
+`allow_network`, `allow_state_mutation`, `allow_process_control`,
+`allow_delivery`, and `allow_alert_suppression`. The module deliberately adds
+no provider credentials and no `MONITORING_AGENT_*` runtime configuration
+keys.
+
+The interpreter is invoked only when the supplied report snapshot contains at
+least one `active` incident state. Candidate-only degraded evidence is skipped
+with a deterministic fallback. Missing provider, provider exception, invalid
+provider output, or unsafe provider text also falls back to the pure
+deterministic report. Provider exception text is never included in the
+sanitized result.
+
+Provider output is accepted only as bounded hypotheses, recommended read-only
+checks, and evidence gaps. It is defensively redacted and rejected if it tries
+to authorize commands, network actions, state writes, service restarts,
+delivery attempts, remediation, or alert suppression. The result carries only
+audit metadata such as provider/model names, timeout/cost bounds, prompt hash,
+prompt length, confirmed incident keys, status, and coarse error code; it does
+not persist prompts, call external systems, suppress deterministic incident
+rules, or replace legacy alerts.
+
 ## Test-only delivery adapter contract
 
 `monitoring_agent/delivery.py` contains the source-only delivery adapter for
@@ -284,10 +355,17 @@ from the already-loaded `.env` or process environment for login/default
 sender; `EMAIL` and `APP` remain accepted only as a compatibility fallback.
 Those values are never written to Git or agent state.
 
-This source does not complete the delivery gate by itself. A real controlled
-test message still requires separate approval of the exact recipient,
-credential boundary, runtime command, expected evidence, and rollback/stop
-criteria. Production recipients and legacy scheduler alerts remain unchanged.
+Item 5 is complete only for the test-only Outlook delivery boundary. On
+2026-08-14 the supervision station verified commit
+`5cfc5916d3e83cdcc1eecd34f3f2719d62ec351c`, loaded the controlled recipient
+only as a hash, prepared an isolated synthetic outbox/report, dry-ran one due
+item, and sent one explicitly confirmed synthetic email through `send-due`.
+The sanitized result was `status="sent"`, `action="opened"`,
+`attempt_count=1`, and no error code. A follow-up `dry-run` for the same
+`idempotency_key` returned `due_count=0`, proving the sent synthetic outbox
+item was not pending for re-send. Production recipients, automatic delivery,
+production delivery channels, and legacy scheduler-alert replacement remain
+unauthorized.
 
 The operator helper `python -m monitoring_agent.delivery_cli` provides the
 controlled test entry points. By default it reads `.env` from the current
