@@ -46,6 +46,14 @@ from .reporting import (
     render_programming_agent_prompt,
 )
 from .settings import RuntimeSettings
+from .shadow_pilot import (
+    ShadowPilotBlindSpot,
+    ShadowPilotComparison,
+    ShadowPilotEvent,
+    build_shadow_pilot_comparison,
+    events_from_incident_evaluation,
+    render_shadow_pilot_comparison,
+)
 from .store import ObserverStore, StateRetentionError
 
 __all__ = [
@@ -72,18 +80,24 @@ __all__ = [
     "RuntimeSettings",
     "StateRetentionError",
     "StateAuditError",
+    "ShadowPilotBlindSpot",
+    "ShadowPilotComparison",
+    "ShadowPilotEvent",
     "TestDeliveryPolicy",
     "build_test_delivery_envelope",
     "deliver_due_test_delivery_intents",
     "build_state_audit",
     "build_monitoring_report_snapshot",
+    "build_shadow_pilot_comparison",
     "build_interpretation_prompt",
+    "events_from_incident_evaluation",
     "evaluate_incident_lifecycle",
     "hash_delivery_recipient",
     "normalize_delivery_recipient",
     "redact_monitoring_text",
     "render_monitoring_report",
     "render_programming_agent_prompt",
+    "render_shadow_pilot_comparison",
     "interpret_confirmed_incidents",
     "send_email_outlook",
     "validate_outlook_email_environment",

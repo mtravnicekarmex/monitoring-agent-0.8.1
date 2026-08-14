@@ -322,6 +322,42 @@ prompt length, confirmed incident keys, status, and coarse error code; it does
 not persist prompts, call external systems, suppress deterministic incident
 rules, or replace legacy alerts.
 
+## Shadow pilot comparison contract
+
+`monitoring_agent/shadow_pilot.py` adds shadow-pilot comparison contract
+version 1 for roadmap item 7. It compares supplied normalized monitoring-agent
+events with supplied normalized legacy-alert events for one reviewed period.
+It does not read `.env`, inspect databases, poll endpoints, call an
+interpretation provider, send email, mutate state, control processes, or
+replace legacy alerts.
+
+The comparison boundary is intentionally narrow:
+
+- `ShadowPilotEvent` represents one comparable detection or recovery event
+  from either `monitoring_agent` or `legacy_alert`.
+- `events_from_incident_evaluation()` converts existing agent incident
+  lifecycle output to comparable shadow events, keeping only `opened`,
+  `reopened`, and `recovered` transitions.
+- `build_shadow_pilot_comparison()` uses a start-inclusive/end-exclusive
+  period, one configurable match window, and one configurable duplicate
+  window.
+- `render_shadow_pilot_comparison()` produces a bounded redacted text summary
+  for operator review.
+
+The output is always `mode="shadow_only"`. It reports matched detections,
+matched recoveries, agent-only detections as false positives, legacy-only
+detections as false negatives, agent-minus-legacy confirmation and recovery
+delays, duplicate counts/rates, and blind-spot counts. Duplicates are counted
+separately and are not used to inflate false-positive or false-negative
+counts. Defensive redaction is applied to optional summaries, but comparison
+inputs must still be sanitized facts rather than raw email bodies, raw `.env`,
+credentials, recipients, endpoint payloads, or private runtime files.
+
+This source preflight does not complete the real item-7 shadow pilot. Item 7
+requires a reviewed operating period, a written comparison against the current
+alerts, and separate approval before any legacy alert is replaced, disabled,
+rerouted, downgraded, or suppressed.
+
 ## Test-only delivery adapter contract
 
 `monitoring_agent/delivery.py` contains the source-only delivery adapter for
