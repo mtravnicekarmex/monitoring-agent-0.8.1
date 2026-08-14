@@ -16,17 +16,17 @@ The remote project contains:
   Scheduled Task registration helper with `-WhatIf` support;
 - the `monitoring_agent/` standard-library package;
 - `.env.example`, the complete non-secret configuration template;
-- `.gitignore`, which excludes the real `../.env`, PyCharm state, Python caches,
+- `.gitignore`, which excludes the real `.env`, PyCharm state, Python caches,
   virtual environments, and local agent state;
 - bundle manifests for offline integrity verification.
 
-The real `../.env` exists only on the supervision workstation. It contains all
+The real `.env` exists only on the supervision workstation. It contains all
 runtime values, including the private HTTPS base URL, public page root URL,
 and monitoring bearer credential. The program reads the file directly; it
 does not require the operator to create persistent or session-level
 environment variables.
 
-Never commit, bundle, display, transmit, or paste the real `../.env`. Restrict
+Never commit, bundle, display, transmit, or paste the real `.env`. Restrict
 its Windows ACL to the operating identity and `SYSTEM` before any automatic
 startup registration.
 
@@ -34,8 +34,8 @@ startup registration.
 
 1. Open the extracted bundle root as a PyCharm project.
 2. Select CPython 3.14. No third-party package installation is required.
-3. Copy `.env.example` to `../.env`.
-4. Edit `../.env` locally and replace the private base URL and bearer placeholder.
+3. Copy `.env.example` to `.env`.
+4. Edit `.env` locally and replace the private base URL and bearer placeholder.
    Verify the configured public HTTPS page root without adding credentials,
    query parameters, fragments, or a non-root path.
 5. Keep `MONITORING_AGENT_MODE=test`.
@@ -48,10 +48,11 @@ startup registration.
    this runs the new safe client as observation contract 3 / endpoint set 2
    and proves recovery against the strict server-side projections. Only after
    that bridge cycle and audit pass, migrate the environment contract from 1
-   to 2, add `MONITORING_AGENT_EXTERNAL_WEB_URL`, and update
+   to 3, add `MONITORING_AGENT_EXTERNAL_WEB_URL`, update
    `MONITORING_AGENT_ENDPOINT_KEYS` to the exact nine-key value from the new
-   `.env.example`. Preserve the existing bearer, instance ID, state path,
-   timeouts, retry policy, interval, jitter, and private base URL.
+   `.env.example`, and set the explicit local state retention/outbox limits.
+   Preserve the existing bearer, instance ID, state path, timeouts, retry
+   policy, interval, jitter, and private base URL.
 
 Validate without network access or state writes:
 
@@ -68,7 +69,7 @@ Expected safe output before the environment migration:
 Expected safe output after the environment migration:
 
 ```json
-{"endpoint_count":9,"env_contract_version":2,"event":"configuration_valid","mode":"test"}
+{"endpoint_count":9,"env_contract_version":3,"event":"configuration_valid","mode":"test"}
 ```
 
 Run one foreground HTTPS cycle:
@@ -113,7 +114,7 @@ state. It enforces the exact contract-to-set mapping and evaluates each cycle
 against its own order and timeout budget. This compatibility is intentional;
 do not rewrite or discard retained 0.6/0.7 observations.
 
-It never prints the `../.env`, state path, bearer, observer instance, process ID,
+It never prints the `.env`, state path, bearer, observer instance, process ID,
 cycle/observation IDs, timestamps, endpoint payloads, or raw JSONL records.
 Each process creates a new random `run_id`. Observation contracts 2 through 4
 record the run, cycle identity, and per-run cycle sequence. The append-only
@@ -125,7 +126,7 @@ after this contract was installed.
 
 The PyCharm run configuration uses `run_monitoring_agent.py` as the script,
 the extracted bundle root as the working directory, and either `--once` or no
-parameters. Do not copy `../.env` values into the PyCharm run configuration.
+parameters. Do not copy `.env` values into the PyCharm run configuration.
 
 ## Polling and self-health contract
 
@@ -163,6 +164,165 @@ URL and response headers are never written to observation state. Deploy all
 matching authenticated facade routes on the monitored workstation before
 starting 0.8; an absent route is a non-retryable HTTP failure.
 
+## Incident rule and lifecycle contract
+
+Incident rule version 1 is a pure deterministic layer in
+`monitoring_agent/incidents.py`. It consumes already-normalized observation
+facts or complete-cycle snapshots and returns sanitized incident states and
+transitions. It does not read `.env`, perform network access, write state,
+send email, mutate the target application, or replace legacy alerts. Bounded
+incident persistence and an outbox remain the separate roadmap item 3.
+
+Default rule table:
+
+| Kind | Opens after | Recovers after | Evidence | Suppression |
+| --- | ---: | ---: | --- | --- |
+| `endpoint` | 2 consecutive cycles | 2 healthy cycles | isolated retryable endpoint transport failure, external-web failure, or payload status `unavailable`/`degraded`/`error` | retryable facade endpoint failures are suppressed when the same cycle qualifies as target-wide |
+| `target_wide_outage` | 2 consecutive cycles | 2 healthy cycles | every observed facade endpoint fails with retryable transport status `connection_error` or `timeout` | suppresses matching per-endpoint transport noise |
+| `observer_self_health` | 1 cycle | 2 healthy cycles | facade `http_error`, `schema_error`, or `tls_error`, which indicates observer/facade contract, authorization, or trust-boundary trouble rather than application payload status | none |
+| `supervision_center_blind_spot` | 1 stale check | 1 fresh cycle | no complete cycle or the latest complete cycle older than the deterministic stale threshold, default 130 seconds | none |
+
+Lifecycle semantics are explicit: a pre-threshold condition is a `candidate`
+and emits only a suppressed transition; a confirmed condition opens an
+`active` incident; repeated matching evidence updates that incident; a
+configured number of healthy cycles recovers it; later confirmed recurrence
+reopens it after the recurrence cooldown. Historical retained evidence must be
+passed as `historical=True`; it is qualified and suppressed, so immutable
+upgrade artifacts such as old schema errors cannot open a current incident.
+
+## Bounded incident store and delivery outbox contract
+
+Environment contract 3 requires explicit local bounds for observations,
+incident states, transition records, outbox items, delivery attempts, retry
+backoff, and abandoned-claim recovery. Legacy contract 1 and 2 files remain
+loadable only for controlled upgrade compatibility and receive conservative
+code defaults; new deployments should use contract 3 so the bounds are visible
+in `.env.example`.
+
+`monitoring_agent/incident_store.py` persists one agent-owned
+`incident_state.json` file with:
+
+- normalized current incident states;
+- bounded sanitized transition records;
+- bounded delivery-intent outbox items;
+- deterministic idempotency keys;
+- retry/dead-letter state;
+- in-progress claim recovery after a configured timeout.
+
+The outbox is only intent state. It has no sender adapter, recipient list,
+credential, message body, network access, or delivery authorization. Later
+delivery work must consume this store through a separately approved adapter.
+Atomic replace is used for snapshot writes. Invalid or corrupt incident state
+fails closed and is not overwritten.
+
+Observation history is retained separately by `ObserverStore` after each
+completed cycle. Retention keeps whole recent cycles and atomically rewrites
+`observations.jsonl`; invalid observation JSON fails closed without rewrite.
+This intentionally changes future source behavior from unbounded append-only
+observation history to bounded agent-owned local history. Lifecycle and
+heartbeat semantics remain separate.
+
+## Pure report and programming-agent prompt contract
+
+`monitoring_agent/reporting.py` renders deterministic text only from supplied
+normalized incident facts and optional incident-store snapshots. It does not
+read `.env`, inspect local state files, perform network access, send email,
+claim outbox items, mutate incident state, control processes, or replace
+legacy alerts.
+
+The report keeps these sections visibly separate:
+
+- verified facts, such as rule version, heartbeat summary, incident-state
+  counts, transition counts, and delivery-disabled outbox counts;
+- deterministic rule conclusions, such as candidate, active, opened, updated,
+  recovered, or suppressed incident facts;
+- historical qualifications and evidence gaps, including retained
+  upgrade/migration evidence that must not open a current incident;
+- hypotheses that are not verified facts.
+
+The programming-agent prompt renderer is also pure and bounded. It explicitly
+labels the output as a draft only, asks only for read-only diagnostic planning,
+and states that no command execution, network contact, state mutation,
+service restart, delivery attempt, or alert replacement is authorized.
+
+Both renderers apply defensive redaction for likely secret assignments,
+bearer values, URL query/fragment content, Windows user paths, and synthetic
+private identifiers. Redaction is a safety net, not a license to pass raw
+credentials, raw `.env`, raw endpoint bodies, recipients, or private runtime
+state into report inputs.
+
+## Test-only delivery adapter contract
+
+`monitoring_agent/delivery.py` contains the source-only delivery adapter for
+the next controlled test gate. It is not wired into the polling loop and does
+not run unless called explicitly by an operator-controlled workflow.
+
+The default policy is disabled. In disabled mode the adapter does not claim
+outbox items, does not mutate `incident_state.json`, does not build a message,
+and does not call a transport. Enabled delivery is restricted to `mode="test"`
+and requires:
+
+- one in-memory test recipient;
+- an in-memory allowlist derived by the controlled operator path from that
+  exact recipient;
+- a supplied report body keyed by the outbox item's `report_reference`;
+- an explicit transport object.
+
+Sanitized delivery results include outbox identity, incident key, action,
+report reference, recipient hash, attempt count, status, and coarse error
+code. They do not include the raw recipient, SMTP username, password, sender,
+message body, transport exception text, or any credential value. Message body
+and recipient address exist only in the in-memory envelope passed to the
+transport.
+
+`OutlookEmailTransport` is the only operator SMTP backend. It calls
+`send_email_outlook()`, mirroring the existing local alarm-email pattern:
+Office365/Outlook SMTP on `smtp.office365.com:587`, EHLO, STARTTLS, EHLO,
+login, send message, and retry only for known transient SMTP response codes.
+The standalone monitoring-agent implementation reads `O_EMAIL` and `O_APP`
+from the already-loaded `.env` or process environment for login/default
+sender; `EMAIL` and `APP` remain accepted only as a compatibility fallback.
+Those values are never written to Git or agent state.
+
+This source does not complete the delivery gate by itself. A real controlled
+test message still requires separate approval of the exact recipient,
+credential boundary, runtime command, expected evidence, and rollback/stop
+criteria. Production recipients and legacy scheduler alerts remain unchanged.
+
+The operator helper `python -m monitoring_agent.delivery_cli` provides the
+controlled test entry points. By default it reads `.env` from the current
+working directory, but loads only the delivery keys needed by the selected
+command and never prints the loaded values.
+
+- `hash-recipient` reads the recipient from `DELIVERY_TEST_RECIPIENT` and
+  prints only its SHA-256 hash for optional diagnostics.
+- `dry-run` validates the in-memory recipient policy and counts matching
+  due outbox items without claiming, mutating, or sending.
+- `prepare-synthetic` creates one local synthetic outbox item plus a sanitized
+  report file for a local end-to-end adapter test. It requires
+  `--confirm PREPARE_SYNTHETIC_DELIVERY_TEST_STATE` and refuses to reuse an
+  existing state file unless explicitly overridden.
+- `send-due` requires `--confirm SEND_TEST_DELIVERY`, one exact
+  `--report-reference`, `--claim-id`, a sanitized `--report-file`, the
+  existing alarm SMTP credentials, and `DELIVERY_TEST_RECIPIENT`. It rejects
+  `.env` files as report input, creates the in-memory recipient allowlist
+  internally from the same recipient, calls `send_email_outlook()` through
+  `OutlookEmailTransport`, and defaults to one outbox item per invocation.
+
+Use these delivery-test keys in `.env` or as process environment variables:
+
+- `O_EMAIL`: Office365/Outlook SMTP login and default sender address.
+- `O_APP`: SMTP app password/secret for `O_EMAIL`.
+- `DELIVERY_TEST_RECIPIENT`: exact controlled test recipient.
+- optional `DELIVERY_TEST_SENDER_ALIAS`: only when the mailbox is known to be
+  allowed to send as this alias.
+
+These keys intentionally do not use the `MONITORING_AGENT_` prefix. The
+polling runtime validates only `MONITORING_AGENT_*` keys, so these delivery
+keys may live in the same local `.env` without changing the observer runtime
+schema. Do not add delivery-test keys with the `MONITORING_AGENT_` prefix;
+that prefix is reserved for the strict monitoring-agent configuration schema.
+
 Only one polling writer may use a state directory at a time. The process holds
 a non-blocking operating-system file lock for its entire polling lifetime and
 acquires it before lifecycle, heartbeat, observation, or HTTP activity. A
@@ -191,10 +351,18 @@ remote operator stop the `MonitoringAgentTest` task and confirm no writer
 remains. Install 0.8.1 side by side, retain the existing state directory and
 unchanged env-v1 file, then run `--check-config`, `--once`, and `--audit-state`.
 Require a healthy four-observation compatibility cycle and valid current-run
-evidence. Only then migrate `../.env` to contract 2 / nine keys and run the same
+evidence. Only then migrate `.env` to contract 2 / nine keys and run the same
 three commands again before returning to continuous task operation. Historical
 0.7 schema failures remain append-only evidence and may keep global retry
 history false; the new audit-v7 `observations.current_run` result must pass.
+
+The stop mechanism is a separate migration gate. Do not assume that
+`Stop-ScheduledTask` records a controlled observer stop: Windows Task Scheduler
+may terminate a task without allowing the Python `finally` path to append its
+lifecycle stop event. Transfer and hash verification may proceed while 0.7 is
+running, but do not stop, replace, or restart the task until the operator has
+approved a lifecycle-safe stop method or an explicitly qualified planned
+termination. The 0.8.1 package does not itself authorize process control.
 
 This procedure records the required ordering but does not authorize or perform
 the workstation restart, API deployment, remote synchronization, or Scheduled
@@ -214,11 +382,11 @@ New registration and changes to an existing task remain separate explicit
 approvals. The reviewed default uses the bundle's `.venv\Scripts\python.exe`,
 an explicit working directory, the `SYSTEM` service identity, an `AtStartup` trigger,
 `StartWhenAvailable`, one-minute failure restarts, and `IgnoreNew` duplicate
-handling. No bearer, URL, or `../.env` value appears in the task command line.
-Before approval, verify that `SYSTEM` can read the ACL-restricted `../.env`, write
+handling. No bearer, URL, or `.env` value appears in the task command line.
+Before approval, verify that `SYSTEM` can read the ACL-restricted `.env`, write
 the configured state directory, and execute the project and virtual
 environment. Rollback is removal of the named `MonitoringAgentTest` task; it
-does not delete code, `../.env`, or state.
+does not delete code, `.env`, or state.
 
 ## Synthetic scenarios
 
@@ -240,15 +408,18 @@ Build the reviewed explicit-allowlist ZIP without staging unrelated files:
 ```powershell
 .\.venv-production\Scripts\python.exe `
     scripts\build_monitoring_agent_bundle.py `
-    --version 0.8.1-test `
-    --created-date 2026-08-06 `
-    --output artifacts\monitoring_agent\monitoring-agent-0.8.1-test.zip
+    --version 0.8.2-test `
+    --created-date 2026-08-14 `
+    --output artifacts\monitoring_agent\monitoring-agent-0.8.2-test.zip
 ```
 
 The builder uses deterministic ZIP metadata. It includes `.env.example` but
-rejects any design that would include the real `../.env`, state, logs,
+rejects any design that would include the real `.env`, state, logs,
 credentials from an operating station, PyCharm workspace state, or repository
 metadata.
+Do not rebuild or deploy changed source under the already verified
+`0.8.1-test` identity; any package containing the incident-rule source needs a
+new reviewed bundle version and hash.
 
 ## Source-repository verification
 

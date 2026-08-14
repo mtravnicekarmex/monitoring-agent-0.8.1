@@ -11,7 +11,7 @@ from .audit import StateAuditError, build_state_audit
 from .client import HealthClient
 from .observer import run_observation_cycle
 from .settings import RuntimeSettings
-from .store import ObserverStore, StateWriterLockError
+from .store import ObserverStore, StateRetentionError, StateWriterLockError
 
 
 def calculate_next_cycle_delay(
@@ -79,6 +79,9 @@ def _run_polling_process(
                 run_id=run_id,
                 cycle_sequence=cycle_sequence,
                 endpoint_keys=settings.endpoint_keys,
+            )
+            store.retain_recent_observations(
+                max_records=settings.max_observation_records
             )
             print(
                 json.dumps(
@@ -172,6 +175,8 @@ def main(*, default_env_file: Path | None = None) -> int:
             )
     except StateWriterLockError as exc:
         raise SystemExit(f"agent startup error: {exc}") from exc
+    except StateRetentionError as exc:
+        raise SystemExit(f"agent runtime error: {exc}") from exc
 
 
 if __name__ == "__main__":
