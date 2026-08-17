@@ -360,6 +360,38 @@ counts. Defensive redaction is applied to optional summaries, but comparison
 inputs must still be sanitized facts rather than raw email bodies, raw `.env`,
 credentials, recipients, endpoint payloads, or private runtime files.
 
+The operator helper `python -m monitoring_agent.shadow_pilot_cli` provides
+read-only file-based entry points for the reviewed-period comparison. It does
+not use `.env`.
+
+Export comparable agent events from the local agent-owned state file:
+
+```powershell
+python -m monitoring_agent.shadow_pilot_cli export-agent-events `
+  --agent-state-file "C:\Path\To\state\incident_state.json" `
+  --period-start "2026-08-17T00:00:00+00:00" `
+  --period-end "2026-08-18T00:00:00+00:00" `
+  --json-output ".\artifacts\shadow-agent-events.json"
+```
+
+Compare those events with a supplied sanitized legacy-alert event file:
+
+```powershell
+python -m monitoring_agent.shadow_pilot_cli compare `
+  --agent-events-file ".\artifacts\shadow-agent-events.json" `
+  --legacy-events-file ".\artifacts\legacy-alert-events.json" `
+  --period-start "2026-08-17T00:00:00+00:00" `
+  --period-end "2026-08-18T00:00:00+00:00" `
+  --json-output ".\artifacts\shadow-comparison.json" `
+  --markdown-output ".\artifacts\shadow-comparison.md"
+```
+
+The legacy event file may be either an array of events or an object with an
+`events` array. Each event must contain only sanitized fields:
+`incident_key`, `action`, `occurred_at`, optional `source="legacy_alert"`,
+optional `severity`, optional `summary`, optional `event_reference`, and
+optional `contract_version=1`.
+
 This source preflight does not complete the real item-7 shadow pilot. Item 7
 requires a reviewed operating period, a written comparison against the current
 alerts, and separate approval before any legacy alert is replaced, disabled,

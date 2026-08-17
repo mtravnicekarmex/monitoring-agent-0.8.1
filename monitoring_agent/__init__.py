@@ -57,9 +57,13 @@ from .shadow_pilot import (
     ShadowPilotBlindSpot,
     ShadowPilotComparison,
     ShadowPilotEvent,
+    blind_spots_from_shadow_pilot_payload,
     build_shadow_pilot_comparison,
     events_from_incident_evaluation,
+    events_from_incident_transition_records,
+    events_from_shadow_pilot_payload,
     render_shadow_pilot_comparison,
+    shadow_pilot_events_payload,
 )
 from .store import ObserverStore, StateRetentionError
 
@@ -101,7 +105,10 @@ __all__ = [
     "build_monitoring_report_snapshot",
     "build_shadow_pilot_comparison",
     "build_interpretation_prompt",
+    "blind_spots_from_shadow_pilot_payload",
     "events_from_incident_evaluation",
+    "events_from_incident_transition_records",
+    "events_from_shadow_pilot_payload",
     "evaluate_incident_lifecycle",
     "hash_delivery_recipient",
     "normalize_delivery_recipient",
@@ -109,6 +116,7 @@ __all__ = [
     "render_monitoring_report",
     "render_programming_agent_prompt",
     "render_shadow_pilot_comparison",
+    "shadow_pilot_events_payload",
     "interpret_confirmed_incidents",
     "send_email_outlook",
     "summarize_shadow_incident_snapshot",

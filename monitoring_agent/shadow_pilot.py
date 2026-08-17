@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import math
@@ -397,6 +397,89 @@ def events_from_incident_evaluation(
     )
 
 
+def events_from_incident_transition_records(
+    records: Iterable[Mapping[str, object]],
+    *,
+    source: str = SOURCE_MONITORING_AGENT,
+) -> tuple[ShadowPilotEvent, ...]:
+    if source not in VALID_EVENT_SOURCES:
+        raise ValueError("shadow pilot event source is invalid")
+    events: list[ShadowPilotEvent] = []
+    for record in records:
+        payload = _require_mapping(record, context="incident transition record")
+        transition = _incident_transition_from_mapping(
+            payload.get("transition"),
+        )
+        if transition.action not in COMPARABLE_ACTIONS:
+            continue
+        report_reference = _require_optional_string(
+            payload.get("report_reference"),
+            context="transition report_reference",
+        )
+        events.append(
+            ShadowPilotEvent.from_incident_transition(
+                transition,
+                source=source,
+                event_reference=report_reference,
+            )
+        )
+    return tuple(events)
+
+
+def events_from_shadow_pilot_payload(
+    payload: object,
+    *,
+    default_source: str,
+) -> tuple[ShadowPilotEvent, ...]:
+    if default_source not in VALID_EVENT_SOURCES:
+        raise ValueError("shadow pilot event source is invalid")
+    raw_events = _extract_payload_array(
+        payload,
+        item_key="events",
+        context="shadow pilot events payload",
+    )
+    events = tuple(
+        _event_from_mapping(item, default_source=default_source)
+        for item in raw_events
+    )
+    for event in events:
+        if event.source != default_source:
+            raise ValueError("shadow pilot event source does not match input stream")
+    return events
+
+
+def blind_spots_from_shadow_pilot_payload(
+    payload: object,
+) -> tuple[ShadowPilotBlindSpot, ...]:
+    raw_items = _extract_payload_array(
+        payload,
+        item_key="blind_spots",
+        context="shadow pilot blind-spots payload",
+    )
+    return tuple(_blind_spot_from_mapping(item) for item in raw_items)
+
+
+def shadow_pilot_events_payload(
+    events: Iterable[ShadowPilotEvent],
+    *,
+    source: str,
+) -> dict[str, object]:
+    if source not in VALID_EVENT_SOURCES:
+        raise ValueError("shadow pilot event source is invalid")
+    resolved_events = tuple(events)
+    for event in resolved_events:
+        if event.source != source:
+            raise ValueError("shadow pilot event source mismatch")
+    return {
+        "contract_version": SHADOW_PILOT_CONTRACT_VERSION,
+        "event": "monitoring_shadow_pilot_events",
+        "event_count": len(resolved_events),
+        "events": [event.to_dict() for event in _ordered_events(resolved_events)],
+        "safety_boundary": list(SHADOW_PILOT_SAFETY_BOUNDARY),
+        "source": source,
+    }
+
+
 def build_shadow_pilot_comparison(
     *,
     period_start: datetime,
@@ -790,8 +873,172 @@ def _sanitize_optional_text(value: str) -> str:
     return redact_monitoring_text(value)
 
 
+def _incident_transition_from_mapping(value: object) -> IncidentTransition:
+    payload = _require_mapping(value, context="incident transition")
+    return IncidentTransition(
+        incident_key=_require_string(
+            payload.get("incident_key"),
+            context="transition incident_key",
+        ),
+        action=_require_string(payload.get("action"), context="transition action"),
+        kind=_require_string(payload.get("kind"), context="transition kind"),
+        subject=_require_string(payload.get("subject"), context="transition subject"),
+        severity=_require_string(
+            payload.get("severity"),
+            context="transition severity",
+        ),
+        status=_require_string(payload.get("status"), context="transition status"),
+        reason=_require_string(payload.get("reason"), context="transition reason"),
+        observed_at=_parse_datetime(
+            payload.get("observed_at"),
+            context="transition observed_at",
+        ),
+        cycle_sequence=_require_optional_int(
+            payload.get("cycle_sequence"),
+            context="transition cycle_sequence",
+        ),
+        failure_count=_require_int(
+            payload.get("failure_count"),
+            context="transition failure_count",
+        ),
+        recovery_count=_require_int(
+            payload.get("recovery_count"),
+            context="transition recovery_count",
+        ),
+        occurrence_count=_require_int(
+            payload.get("occurrence_count"),
+            context="transition occurrence_count",
+        ),
+    )
+
+
+def _event_from_mapping(
+    value: object,
+    *,
+    default_source: str,
+) -> ShadowPilotEvent:
+    payload = _require_mapping(value, context="shadow pilot event")
+    source = _require_optional_string(
+        payload.get("source"),
+        context="shadow pilot event source",
+    )
+    return ShadowPilotEvent(
+        source=source or default_source,
+        incident_key=_require_string(
+            payload.get("incident_key"),
+            context="shadow pilot event incident_key",
+        ),
+        action=_require_string(payload.get("action"), context="shadow pilot action"),
+        occurred_at=_parse_datetime(
+            payload.get("occurred_at"),
+            context="shadow pilot occurred_at",
+        ),
+        severity=_require_string(
+            payload.get("severity", "warning"),
+            context="shadow pilot severity",
+        ),
+        summary=_require_string(
+            payload.get("summary", ""),
+            context="shadow pilot summary",
+        ),
+        event_reference=_require_optional_string(
+            payload.get("event_reference"),
+            context="shadow pilot event_reference",
+        ),
+        contract_version=_require_int(
+            payload.get("contract_version", SHADOW_PILOT_CONTRACT_VERSION),
+            context="shadow pilot contract_version",
+        ),
+    )
+
+
+def _blind_spot_from_mapping(value: object) -> ShadowPilotBlindSpot:
+    payload = _require_mapping(value, context="shadow pilot blind spot")
+    return ShadowPilotBlindSpot(
+        source=_require_string(payload.get("source"), context="blind spot source"),
+        category=_require_string(
+            payload.get("category"),
+            context="blind spot category",
+        ),
+        observed_at=_parse_datetime(
+            payload.get("observed_at"),
+            context="blind spot observed_at",
+        ),
+        summary=_require_string(payload.get("summary"), context="blind spot summary"),
+        severity=_require_string(
+            payload.get("severity", "warning"),
+            context="blind spot severity",
+        ),
+        contract_version=_require_int(
+            payload.get("contract_version", SHADOW_PILOT_CONTRACT_VERSION),
+            context="blind spot contract_version",
+        ),
+    )
+
+
+def _extract_payload_array(
+    payload: object,
+    *,
+    item_key: str,
+    context: str,
+) -> list[object]:
+    if isinstance(payload, list):
+        return payload
+    value = _require_mapping(payload, context=context)
+    items = value.get(item_key)
+    if not isinstance(items, list):
+        raise ValueError(f"{context} must contain an array field named {item_key}")
+    return items
+
+
 def _format_datetime(value: datetime) -> str:
     return value.isoformat()
+
+
+def _parse_datetime(value: object, *, context: str) -> datetime:
+    text = _require_string(value, context=context)
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise ValueError(f"{context} must be ISO-8601 datetime") from exc
+    _require_aware_datetime(parsed, context=context)
+    return parsed
+
+
+def _require_mapping(value: object, *, context: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{context} must be an object")
+    return value
+
+
+def _require_string(value: object, *, context: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{context} must be a string")
+    return value
+
+
+def _require_optional_string(value: object, *, context: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{context} must be a string or null")
+    if not value.strip():
+        return None
+    return value
+
+
+def _require_int(value: object, *, context: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{context} must be an integer")
+    return value
+
+
+def _require_optional_int(value: object, *, context: str) -> int | None:
+    if value is None:
+        return None
+    return _require_int(value, context=context)
 
 
 def _require_valid_period(period_start: datetime, period_end: datetime) -> None:
