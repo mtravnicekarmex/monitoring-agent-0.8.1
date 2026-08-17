@@ -45,6 +45,13 @@ from .reporting import (
     render_monitoring_report,
     render_programming_agent_prompt,
 )
+from .runtime_shadow import (
+    ShadowRuntimeSummary,
+    apply_shadow_incident_cycle,
+    build_incident_store,
+    build_incident_store_limits,
+    summarize_shadow_incident_snapshot,
+)
 from .settings import RuntimeSettings
 from .shadow_pilot import (
     ShadowPilotBlindSpot,
@@ -80,9 +87,13 @@ __all__ = [
     "RuntimeSettings",
     "StateRetentionError",
     "StateAuditError",
+    "ShadowRuntimeSummary",
     "ShadowPilotBlindSpot",
     "ShadowPilotComparison",
     "ShadowPilotEvent",
+    "apply_shadow_incident_cycle",
+    "build_incident_store",
+    "build_incident_store_limits",
     "TestDeliveryPolicy",
     "build_test_delivery_envelope",
     "deliver_due_test_delivery_intents",
@@ -100,6 +111,7 @@ __all__ = [
     "render_shadow_pilot_comparison",
     "interpret_confirmed_incidents",
     "send_email_outlook",
+    "summarize_shadow_incident_snapshot",
     "validate_outlook_email_environment",
     "validate_test_delivery_policy",
     "run_observation_cycle",

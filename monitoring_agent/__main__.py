@@ -9,7 +9,9 @@ from uuid import uuid4
 
 from .audit import StateAuditError, build_state_audit
 from .client import HealthClient
+from .incident_store import IncidentStoreError
 from .observer import run_observation_cycle
+from .runtime_shadow import apply_shadow_incident_cycle
 from .settings import RuntimeSettings
 from .store import ObserverStore, StateRetentionError, StateWriterLockError
 
@@ -80,6 +82,10 @@ def _run_polling_process(
                 cycle_sequence=cycle_sequence,
                 endpoint_keys=settings.endpoint_keys,
             )
+            shadow_summary = apply_shadow_incident_cycle(
+                settings=settings,
+                observations=observations,
+            )
             store.retain_recent_observations(
                 max_records=settings.max_observation_records
             )
@@ -88,6 +94,7 @@ def _run_polling_process(
                     {
                         "event": "observation_cycle",
                         "observation_count": len(observations),
+                        "shadow_incidents": shadow_summary.to_dict(),
                         "transport_statuses": sorted(
                             {item.transport_status for item in observations}
                         ),
@@ -175,7 +182,7 @@ def main(*, default_env_file: Path | None = None) -> int:
             )
     except StateWriterLockError as exc:
         raise SystemExit(f"agent startup error: {exc}") from exc
-    except StateRetentionError as exc:
+    except (IncidentStoreError, StateRetentionError) as exc:
         raise SystemExit(f"agent runtime error: {exc}") from exc
 
 

@@ -35,7 +35,12 @@ as the active checkout identity. Commit
 `5cfc5916d3e83cdcc1eecd34f3f2719d62ec351c` contains the item 2-5 candidate
 source, including incident rules, bounded incident/outbox state, pure
 report/prompt rendering, and the `O_EMAIL`/`O_APP`/
-`DELIVERY_TEST_RECIPIENT` test-only delivery path.
+`DELIVERY_TEST_RECIPIENT` test-only delivery path. Commit
+`86ee42b058c74675976904c1e51a2f3677c5f138` adds item 6
+draft/fallback interpretation source. Commit
+`3e7b94e9045527a1254b10066a3a34493577f025` adds item 7
+shadow-pilot comparison source and regenerated manifest files with 20
+declared runtime files.
 
 Before pulling changed source on the supervision station:
 
@@ -357,6 +362,31 @@ This source preflight does not complete the real item-7 shadow pilot. Item 7
 requires a reviewed operating period, a written comparison against the current
 alerts, and separate approval before any legacy alert is replaced, disabled,
 rerouted, downgraded, or suppressed.
+
+## Runtime shadow incident persistence
+
+`monitoring_agent/runtime_shadow.py` wires the deterministic incident lifecycle
+into the polling process in shadow mode. After each completed observation
+cycle, the runner converts the cycle's normalized observations into an
+incident evaluation, applies it to the bounded `IncidentStateStore`, and
+prints a sanitized `shadow_incidents` summary in the `observation_cycle`
+console event.
+
+The persisted file is `incident_state.json` under the configured agent-owned
+state directory. It contains normalized incident states, sanitized transition
+records, and delivery-intent outbox items only. The outbox remains intent
+state; nothing claims or sends those items from the polling loop.
+
+Runtime shadow persistence uses the existing runtime settings. It adds no new
+`.env` variable. Env contract 3 can set explicit incident/outbox limits;
+legacy env contracts 1 and 2 continue to use conservative code defaults.
+
+`--audit-state` now uses audit contract 8 and includes an aggregate
+`shadow_incidents` section with counts, outbox status counts, `present`,
+`history_valid`, `mode="shadow_only"`, and `delivery_enabled=false`. The audit
+does not print raw transition payloads, report bodies, recipients, credentials,
+or endpoint payloads. A corrupt `incident_state.json` fails closed as an audit
+or runtime error and is not overwritten.
 
 ## Test-only delivery adapter contract
 
