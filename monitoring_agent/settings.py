@@ -126,7 +126,7 @@ class RuntimeSettings:
             raise ValueError("MONITORING_AGENT_BASE_URL still contains a placeholder")
 
         external_web_url: str | None = None
-        if env_version == ENV_CONTRACT_VERSION:
+        if "MONITORING_AGENT_EXTERNAL_WEB_URL" in values:
             external_web_url = validate_external_web_url(
                 values["MONITORING_AGENT_EXTERNAL_WEB_URL"]
             )

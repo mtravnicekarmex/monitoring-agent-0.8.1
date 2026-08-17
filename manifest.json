@@ -81,8 +81,8 @@
     },
     {
       "path": "monitoring_agent/README.md",
-      "sha256": "9e9662846dc729668dfd160f95d585dba679593608b0ee3417727442e3ef0870",
-      "size": 29783
+      "sha256": "89578748e54bb5e7d78a73746f7e37b66af46f861d0f579a009172f698931e9c",
+      "size": 29953
     },
     {
       "path": "monitoring_agent/runtime_shadow.py",
@@ -91,8 +91,8 @@
     },
     {
       "path": "monitoring_agent/settings.py",
-      "sha256": "3d59c37ef575d56b4d3d7698f4f9d61eb716b6d58c620d0ca7da2ab704c64198",
-      "size": 13807
+      "sha256": "4209779e4f2af3a7eb9c09af1ec6fcce5a5066a9c71265ffe162333aa0f1ece9",
+      "size": 13817
     },
     {
       "path": "monitoring_agent/shadow_pilot.py",

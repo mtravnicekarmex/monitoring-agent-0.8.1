@@ -234,7 +234,9 @@ incident states, transition records, outbox items, delivery attempts, retry
 backoff, and abandoned-claim recovery. Legacy contract 1 and 2 files remain
 loadable only for controlled upgrade compatibility and receive conservative
 code defaults; new deployments should use contract 3 so the bounds are visible
-in `.env.example`.
+in `.env.example`. Contract 2 still owns the nine-endpoint set and therefore
+must read and validate `MONITORING_AGENT_EXTERNAL_WEB_URL`; otherwise the
+`external_web` endpoint cannot start.
 
 `monitoring_agent/incident_store.py` persists one agent-owned
 `incident_state.json` file with:
