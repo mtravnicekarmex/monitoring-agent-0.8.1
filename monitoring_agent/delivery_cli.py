@@ -58,6 +58,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload = _dry_run(args)
             _print_json(payload)
             return 0 if payload["status"] != DELIVERY_STATUS_CONFIGURATION_ERROR else 2
+        if args.command == "review-outbox":
+            payload = _review_outbox(args)
+            _print_json(payload)
+            return 0
         if args.command == "prepare-synthetic":
             payload = _prepare_synthetic(args)
             _print_json(payload)
@@ -100,6 +104,16 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_common_policy_args(dry_run_parser)
     _add_common_outbox_args(dry_run_parser)
     dry_run_parser.add_argument("--now", default=None)
+
+    review_parser = subparsers.add_parser(
+        "review-outbox",
+        help="Print a sanitized read-only summary of delivery outbox state.",
+    )
+    review_parser.add_argument("--state-dir", type=Path, required=True)
+    review_parser.add_argument("--now", default=None)
+    review_parser.add_argument("--limit", type=int, default=20)
+    review_parser.add_argument("--incident-key", default=None)
+    review_parser.add_argument("--report-reference", default=None)
 
     prepare_parser = subparsers.add_parser(
         "prepare-synthetic",
@@ -231,6 +245,59 @@ def _dry_run(args: argparse.Namespace) -> dict[str, object]:
             _read_required_env(args.recipient_env, error_code="recipient_env_missing")
         ),
         "status": "dry_run_ok",
+    }
+
+
+def _review_outbox(args: argparse.Namespace) -> dict[str, object]:
+    if args.limit < 1:
+        raise DeliveryCliError("review_limit_must_be_positive")
+    now = _parse_now(args.now)
+    snapshot = IncidentStateStore(args.state_dir).load()
+    outbox_items = list(snapshot.outbox_items)
+    status_counts = _count_by(outbox_items, key_name="status")
+    action_counts = _count_by(outbox_items, key_name="action")
+    due_pending_items = [
+        item
+        for item in outbox_items
+        if item.status == OUTBOX_PENDING and item.next_attempt_at <= now
+    ]
+    review_items = [
+        item
+        for item in outbox_items
+        if item.status != "sent"
+        and (
+            args.incident_key is None
+            or item.incident_key == str(args.incident_key)
+        )
+        and (
+            args.report_reference is None
+            or item.report_reference == str(args.report_reference)
+        )
+    ]
+    review_items.sort(
+        key=lambda item: (
+            item.next_attempt_at,
+            item.created_at,
+            item.incident_key,
+            item.idempotency_key,
+        )
+    )
+    limited_items = review_items[: args.limit]
+    return {
+        "delivery_adapter_version": DELIVERY_ADAPTER_VERSION,
+        "due_pending_count": len(due_pending_items),
+        "event": "monitoring_delivery_outbox_review",
+        "generated_at": now.isoformat(),
+        "item_count": len(outbox_items),
+        "items": [_review_item_to_dict(item, now=now) for item in limited_items],
+        "review_item_count": len(review_items),
+        "state_updated_at": (
+            snapshot.updated_at.isoformat() if snapshot.updated_at is not None else None
+        ),
+        "status": "reviewed",
+        "status_counts": status_counts,
+        "action_counts": action_counts,
+        "truncated_item_count": max(0, len(review_items) - len(limited_items)),
     }
 
 
@@ -413,6 +480,35 @@ def _aggregate_status(results: Sequence[DeliveryAttemptResult]) -> str:
     if len(statuses) == 1:
         return next(iter(statuses))
     return "mixed"
+
+
+def _count_by(items: Sequence[object], *, key_name: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        key = str(getattr(item, key_name, "") or "unknown")
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _review_item_to_dict(item, *, now: datetime) -> dict[str, object]:
+    return {
+        "action": item.action,
+        "attempt_count": item.attempt_count,
+        "due": item.status == OUTBOX_PENDING and item.next_attempt_at <= now,
+        "created_at": item.created_at.isoformat(),
+        "idempotency_key": item.idempotency_key,
+        "incident_key": item.incident_key,
+        "last_attempt_at": (
+            item.last_attempt_at.isoformat()
+            if item.last_attempt_at is not None
+            else None
+        ),
+        "last_error_code": item.last_error_code,
+        "next_attempt_at": item.next_attempt_at.isoformat(),
+        "report_reference": item.report_reference,
+        "status": item.status,
+        "updated_at": item.updated_at.isoformat(),
+    }
 
 
 def _send_exit_code(payload: MappingLike) -> int:

@@ -51,8 +51,8 @@
     },
     {
       "path": "monitoring_agent/delivery_cli.py",
-      "sha256": "35ea09a9b01c050213fa3ccff68753cce38a2bc9c25801be11ba4c4cbe4d61a1",
-      "size": 15896
+      "sha256": "3ba86239e9a448cb5de1be1a8aaa1192bc77f29aa05dc18558818ac9b743ab3d",
+      "size": 19430
     },
     {
       "path": "monitoring_agent/incident_store.py",
@@ -96,8 +96,8 @@
     },
     {
       "path": "monitoring_agent/README.md",
-      "sha256": "d17d4d1ce76ea139448375746e55e1376701cd60f0ed0dfa9835800e757b2cfc",
-      "size": 34903
+      "sha256": "d674fe2a5589b34e7dc0ca87279988c8a62fcb7e8b91c9506c7ea4d38665de6e",
+      "size": 35810
     },
     {
       "path": "monitoring_agent/runtime_shadow.py",
