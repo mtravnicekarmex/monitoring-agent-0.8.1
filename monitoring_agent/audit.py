@@ -650,6 +650,7 @@ def _summarize_shadow_incidents(
     summary = summarize_shadow_incident_snapshot(
         snapshot,
         incident_rule_version=1,
+        delivery_enabled=settings.delivery_automation_enabled,
     ).to_dict()
     summary.pop("transition_count")
     return {

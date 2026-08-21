@@ -530,6 +530,16 @@ from the already-loaded `.env` or process environment for login/default
 sender; `EMAIL` and `APP` remain accepted only as a compatibility fallback.
 Those values are never written to Git or agent state.
 
+Automatic runtime delivery remains test-only and opt-in. It is enabled only
+when the non-`MONITORING_AGENT_` key `DELIVERY_AUTOMATION_ENABLED=true` is
+present in the local `.env`. When enabled, the polling loop sends at most one
+due pending outbox item after a completed observation cycle, using
+`DELIVERY_TEST_RECIPIENT`, `O_EMAIL`/`O_APP`, the existing retry/dead-letter
+state, and a sanitized deterministic report body generated from
+`incident_state.json`. It does not support production recipients, recipient
+lists, provider interpretation, remediation, process control, alert
+suppression, or legacy-alert replacement.
+
 Item 5 is complete only for the test-only Outlook delivery boundary. On
 2026-08-14 the supervision station verified commit
 `5cfc5916d3e83cdcc1eecd34f3f2719d62ec351c`, loaded the controlled recipient
@@ -578,6 +588,9 @@ Use these delivery-test keys in `.env` or as process environment variables:
 - `DELIVERY_TEST_RECIPIENT`: exact controlled test recipient.
 - optional `DELIVERY_TEST_SENDER_ALIAS`: only when the mailbox is known to be
   allowed to send as this alias.
+- optional `DELIVERY_AUTOMATION_ENABLED=true`: enables automatic test-only
+  runtime delivery of at most one due pending outbox item after each completed
+  polling cycle. The default and missing value is disabled.
 
 These keys intentionally do not use the `MONITORING_AGENT_` prefix. The
 polling runtime validates only `MONITORING_AGENT_*` keys, so these delivery

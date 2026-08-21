@@ -89,6 +89,7 @@ class RuntimeSettings:
     outbox_retry_backoff_seconds: float
     outbox_claim_timeout_seconds: float
     bearer_credential: str = field(repr=False)
+    delivery_automation_enabled: bool = False
 
     @classmethod
     def load(cls, path: Path) -> RuntimeSettings:
@@ -255,6 +256,7 @@ class RuntimeSettings:
             or "change-me" in bearer_credential.lower()
         ):
             raise ValueError("MONITORING_AGENT_BEARER_TOKEN has an invalid format")
+        delivery_automation_enabled = _read_delivery_automation_enabled(env_path)
 
         return cls(
             env_contract_version=env_version,
@@ -281,6 +283,7 @@ class RuntimeSettings:
             outbox_retry_backoff_seconds=outbox_retry_backoff_seconds,
             outbox_claim_timeout_seconds=outbox_claim_timeout_seconds,
             bearer_credential=bearer_credential,
+            delivery_automation_enabled=delivery_automation_enabled,
         )
 
     def safe_summary(self) -> dict[str, object]:
@@ -309,6 +312,45 @@ def _read_strict_env(path: Path) -> dict[str, str]:
         if not ENV_KEY_PATTERN.fullmatch(key):
             raise ValueError(f"environment line {line_number} has an invalid key")
         if not key.startswith("MONITORING_AGENT_"):
+            continue
+        if key in values:
+            raise ValueError(f"environment key is duplicated: {key}")
+        value = raw_value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        values[key] = value
+    return values
+
+
+def _read_delivery_automation_enabled(path: Path) -> bool:
+    values = _read_non_monitoring_keys(path, {"DELIVERY_AUTOMATION_ENABLED"})
+    raw_value = values.get("DELIVERY_AUTOMATION_ENABLED")
+    if raw_value is None:
+        return False
+    normalized = raw_value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise ValueError("DELIVERY_AUTOMATION_ENABLED must be either true or false")
+
+
+def _read_non_monitoring_keys(path: Path, allowed_keys: set[str]) -> dict[str, str]:
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except OSError as exc:
+        raise ValueError("environment file could not be read") from exc
+
+    values: dict[str, str] = {}
+    for line_number, raw_line in enumerate(lines, start=1):
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "=" not in stripped:
+            raise ValueError(f"environment line {line_number} is invalid")
+        key, raw_value = stripped.split("=", 1)
+        key = key.strip()
+        if key.startswith("MONITORING_AGENT_") or key not in allowed_keys:
             continue
         if key in values:
             raise ValueError(f"environment key is duplicated: {key}")

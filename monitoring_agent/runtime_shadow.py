@@ -49,8 +49,8 @@ class ShadowRuntimeSummary:
     contract_version: int = SHADOW_RUNTIME_CONTRACT_VERSION
 
     def __post_init__(self) -> None:
-        if self.delivery_enabled is not False:
-            raise ValueError("shadow runtime delivery must remain disabled")
+        if not isinstance(self.delivery_enabled, bool):
+            raise ValueError("shadow runtime delivery flag must be boolean")
         if self.mode != SHADOW_RUNTIME_MODE:
             raise ValueError("shadow runtime mode must be shadow_only")
         if self.contract_version != SHADOW_RUNTIME_CONTRACT_VERSION:
@@ -138,6 +138,7 @@ def apply_shadow_incident_cycle(
         next_snapshot,
         incident_rule_version=evaluation.rule_version,
         transition_count=len(evaluation.transitions),
+        delivery_enabled=settings.delivery_automation_enabled,
     )
 
 
@@ -146,6 +147,7 @@ def summarize_shadow_incident_snapshot(
     *,
     incident_rule_version: int,
     transition_count: int = 0,
+    delivery_enabled: bool = False,
 ) -> ShadowRuntimeSummary:
     state_status_counts = Counter(state.status for state in snapshot.states)
     outbox_status_counts = Counter(item.status for item in snapshot.outbox_items)
@@ -163,6 +165,7 @@ def summarize_shadow_incident_snapshot(
         outbox_sent_count=outbox_status_counts[OUTBOX_SENT],
         outbox_dead_letter_count=outbox_status_counts[OUTBOX_DEAD_LETTER],
         updated_at=snapshot.updated_at,
+        delivery_enabled=delivery_enabled,
     )
 
 

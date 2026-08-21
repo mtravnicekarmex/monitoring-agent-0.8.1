@@ -6,8 +6,8 @@
   "files": [
     {
       "path": ".env.example",
-      "sha256": "ab57dd60432b8d64b4728d3065d78a6caf0d5f3506d3e2e1a487c97ed5ee8301",
-      "size": 1571
+      "sha256": "88bf25bb8d0d980d4d73ff26960e801c631c8e37409aba0d02ecb685023a6f51",
+      "size": 1616
     },
     {
       "path": ".gitignore",
@@ -31,13 +31,13 @@
     },
     {
       "path": "monitoring_agent/__main__.py",
-      "sha256": "28e15bd5722d4d86998f0b7809f58e2242ffa69b567e01b7aaa712ca0ea74d78",
-      "size": 6484
+      "sha256": "9b8cbc6eac5e2fb826d2b09b038c47b3f8a8141ef11f25e31d9c32574672f355",
+      "size": 7359
     },
     {
       "path": "monitoring_agent/audit.py",
-      "sha256": "f43ef9dd34c1304c692dfcb3aa0bf029fadc83ad9d65ac3abbcb96f95b15e9d4",
-      "size": 52581
+      "sha256": "c66e103323e5ad6e21bd1849a775a1a21135366cafeed703ced75fe23204b701",
+      "size": 52640
     },
     {
       "path": "monitoring_agent/client.py",
@@ -46,8 +46,8 @@
     },
     {
       "path": "monitoring_agent/delivery.py",
-      "sha256": "fae6baf5b4aa8421c5d2966b57078498446597b6288d7a53db12bbee43e7e569",
-      "size": 19508
+      "sha256": "1b9769d3e75afa6489de5ec3d54c845f45e36f02c6d4f7ab93fc3b72e3ce7f77",
+      "size": 19735
     },
     {
       "path": "monitoring_agent/delivery_cli.py",
@@ -96,18 +96,23 @@
     },
     {
       "path": "monitoring_agent/README.md",
-      "sha256": "2ff00e6e67a31aed3acb96dcfcb9823ca0143439e7e57567f9856aba72a47c16",
-      "size": 36211
+      "sha256": "b6ca733e057b89423c0a18950e4247e4df68b94b477bb389683e0a1d70c23994",
+      "size": 37035
+    },
+    {
+      "path": "monitoring_agent/runtime_delivery.py",
+      "sha256": "0bef5956a2a1f98df2d276910ab17cbb0f94a85e5a96c051c435956b8b340d9e",
+      "size": 11427
     },
     {
       "path": "monitoring_agent/runtime_shadow.py",
-      "sha256": "c963f675867d03db7716987cba9da69002cce0931d7a0f29c6e31d05580e0adf",
-      "size": 6961
+      "sha256": "56ec9eca355ed2b3253373705ef4d325b77414c516444dec0f9314937c5fefe7",
+      "size": 7092
     },
     {
       "path": "monitoring_agent/settings.py",
-      "sha256": "adb77dc90ed29a11b353c40eebe32a26e3989c0c3c7f69ad22c09607c40d54fc",
-      "size": 14164
+      "sha256": "4f90843692d1c3413347df83010603d20dafc2d0eb97de996cc3ddc89ef0695a",
+      "size": 15840
     },
     {
       "path": "monitoring_agent/shadow_pilot.py",

@@ -11,7 +11,12 @@ from .audit import StateAuditError, build_state_audit
 from .client import HealthClient
 from .incident_store import IncidentStoreError
 from .observer import run_observation_cycle
-from .runtime_shadow import apply_shadow_incident_cycle
+from .runtime_delivery import run_runtime_delivery
+from .runtime_shadow import (
+    apply_shadow_incident_cycle,
+    build_incident_store,
+    summarize_shadow_incident_snapshot,
+)
 from .settings import RuntimeSettings
 from .store import ObserverStore, StateRetentionError, StateWriterLockError
 
@@ -82,23 +87,40 @@ def _run_polling_process(
                 cycle_sequence=cycle_sequence,
                 endpoint_keys=settings.endpoint_keys,
             )
+            incident_store = build_incident_store(settings)
             shadow_summary = apply_shadow_incident_cycle(
                 settings=settings,
                 observations=observations,
+                incident_store=incident_store,
             )
+            delivery_summary = run_runtime_delivery(
+                settings=settings,
+                env_file=args.env_file,
+                store=incident_store,
+            )
+            if delivery_summary.state_changed:
+                shadow_summary = summarize_shadow_incident_snapshot(
+                    incident_store.load(),
+                    incident_rule_version=shadow_summary.incident_rule_version,
+                    transition_count=shadow_summary.transition_count,
+                    delivery_enabled=settings.delivery_automation_enabled,
+                )
             store.retain_recent_observations(
                 max_records=settings.max_observation_records
             )
+            cycle_event = {
+                "event": "observation_cycle",
+                "observation_count": len(observations),
+                "shadow_incidents": shadow_summary.to_dict(),
+                "transport_statuses": sorted(
+                    {item.transport_status for item in observations}
+                ),
+            }
+            if delivery_summary.enabled:
+                cycle_event["delivery"] = delivery_summary.to_dict()
             print(
                 json.dumps(
-                    {
-                        "event": "observation_cycle",
-                        "observation_count": len(observations),
-                        "shadow_incidents": shadow_summary.to_dict(),
-                        "transport_statuses": sorted(
-                            {item.transport_status for item in observations}
-                        ),
-                    },
+                    cycle_event,
                     separators=(",", ":"),
                     sort_keys=True,
                 ),

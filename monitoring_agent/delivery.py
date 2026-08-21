@@ -138,16 +138,27 @@ class DeliveryAttemptResult:
 
 
 class OutlookEmailTransport:
-    def __init__(self, *, sender_alias: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        sender_alias: str | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> None:
         self._sender_alias = sender_alias
+        self._env = env
 
     def send(self, envelope: DeliveryEnvelope) -> None:
+        kwargs = {
+            "email_receiver": envelope.recipient,
+            "subject": envelope.subject,
+            "body": envelope.body_text,
+            "sender_alias": self._sender_alias,
+            "is_html": False,
+        }
+        if self._env is not None:
+            kwargs["env"] = self._env
         send_email_outlook(
-            email_receiver=envelope.recipient,
-            subject=envelope.subject,
-            body=envelope.body_text,
-            sender_alias=self._sender_alias,
-            is_html=False,
+            **kwargs,
         )
 
 
