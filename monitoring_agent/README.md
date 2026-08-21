@@ -43,6 +43,11 @@ shadow-pilot comparison source and regenerated manifest files with 20
 declared runtime files. Later item-7 commits add runtime shadow incident
 persistence, the env-v2 external-web compatibility fix, and the file-based
 shadow-pilot comparison CLI used to prepare the reviewed-period comparison.
+Commit `f6583d80a77695b3f4a094337251c6835b389b59` adds the item-9
+file-only orchestrator modules and
+`monitoring_agent.orchestrator_export_cli wrap-remote-audit` so supplied
+remote `--audit-state` JSON can be wrapped with `captured_at` before
+orchestration.
 
 Before pulling changed source on the supervision station:
 
@@ -169,9 +174,9 @@ parameters. Do not copy `.env` values into the PyCharm run configuration.
 
 ## Polling and self-health contract
 
-The initial `.env.example` defines:
+The steady-state `.env.example` defines:
 
-- serialized 60-second start-to-start cycles plus 0-5 seconds random jitter;
+- serialized 300-second start-to-start cycles plus 0-30 seconds random jitter;
 - a three-second request timeout and at most three attempts;
 - exponential 0.5/1.0-second backoff only for connection errors and timeouts;
 - no retry for HTTP authorization/status errors, TLS errors, invalid JSON, or
@@ -244,7 +249,9 @@ must read and validate `MONITORING_AGENT_EXTERNAL_WEB_URL`; otherwise the
 `incident_state.json` file with:
 
 - normalized current incident states;
-- bounded sanitized transition records;
+- bounded sanitized transition records, with redundant unchanged `updated`
+  transitions collapsed so a long-running active incident does not evict
+  meaningful open/recover/suppression history;
 - bounded delivery-intent outbox items;
 - deterministic idempotency keys;
 - retry/dead-letter state;

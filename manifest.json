@@ -2,12 +2,12 @@
   "authentication": "local-dotenv-bearer-to-digest-verified-facade",
   "bundle_name": "monitoring-agent",
   "bundle_version": "0.8.1-test-git",
-  "created_date": "2026-08-17",
+  "created_date": "2026-08-21",
   "files": [
     {
       "path": ".env.example",
-      "sha256": "3448c6933f9a8de865866890f58d56c84a4f854328d15ab97ea2ec953eaa5640",
-      "size": 1600
+      "sha256": "ab57dd60432b8d64b4728d3065d78a6caf0d5f3506d3e2e1a487c97ed5ee8301",
+      "size": 1571
     },
     {
       "path": ".gitignore",
@@ -56,8 +56,8 @@
     },
     {
       "path": "monitoring_agent/incident_store.py",
-      "sha256": "4f13c3392c99fa77c93e6a78d3e56726d45ebe316461b4e797d62c666803e647",
-      "size": 34670
+      "sha256": "1f14bd92582a567b091ca2b94126584a026599319e70a9302be6bafff9dfe938",
+      "size": 35305
     },
     {
       "path": "monitoring_agent/incidents.py",
@@ -96,8 +96,8 @@
     },
     {
       "path": "monitoring_agent/README.md",
-      "sha256": "076c761231a4a5f59752322efd25279f58059ed62c97a96671171523924ec9f1",
-      "size": 34483
+      "sha256": "d17d4d1ce76ea139448375746e55e1376701cd60f0ed0dfa9835800e757b2cfc",
+      "size": 34903
     },
     {
       "path": "monitoring_agent/runtime_shadow.py",

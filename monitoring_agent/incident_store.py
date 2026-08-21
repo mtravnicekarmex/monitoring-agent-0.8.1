@@ -271,21 +271,14 @@ class IncidentStateStore:
                 max_states=self._limits.max_incident_states,
             )
         )
-        transition_records = [
-            *snapshot.transition_records,
-            *(
-                _transition_record(
-                    transition=transition,
-                    rule_version=evaluation.rule_version,
-                    report_reference=_report_reference(
-                        transition,
-                        report_references=report_references,
-                    ),
-                    recorded_at=recorded_at,
-                )
-                for transition in evaluation.transitions
-            ),
-        ][-self._limits.max_transition_records :]
+        transition_records = _append_transition_records(
+            snapshot.transition_records,
+            evaluation.transitions,
+            rule_version=evaluation.rule_version,
+            report_references=report_references,
+            recorded_at=recorded_at,
+            max_records=self._limits.max_transition_records,
+        )
         outbox_items = list(snapshot.outbox_items)
         known_idempotency_keys = {
             item.idempotency_key for item in snapshot.outbox_items
@@ -731,6 +724,65 @@ def _transition_record(
         "transition": transition.to_dict(),
         "transition_record_contract_version": TRANSITION_RECORD_CONTRACT_VERSION,
     }
+
+
+def _append_transition_records(
+    existing_records: tuple[dict[str, object], ...],
+    transitions: tuple[IncidentTransition, ...],
+    *,
+    rule_version: int,
+    report_references: Mapping[str, str],
+    recorded_at: datetime,
+    max_records: int,
+) -> tuple[dict[str, object], ...]:
+    records = list(existing_records)
+    for transition in transitions:
+        if not _should_record_transition(records, transition):
+            continue
+        records.append(
+            _transition_record(
+                transition=transition,
+                rule_version=rule_version,
+                report_reference=_report_reference(
+                    transition,
+                    report_references=report_references,
+                ),
+                recorded_at=recorded_at,
+            )
+        )
+    return tuple(records[-max_records:])
+
+
+def _should_record_transition(
+    records: list[dict[str, object]],
+    transition: IncidentTransition,
+) -> bool:
+    if transition.action != "updated":
+        return True
+    previous = _last_transition_for_incident(records, transition.incident_key)
+    if previous is None:
+        return True
+    if previous.action != "updated":
+        return True
+    return (
+        previous.reason != transition.reason
+        or previous.status != transition.status
+        or previous.severity != transition.severity
+    )
+
+
+def _last_transition_for_incident(
+    records: list[dict[str, object]],
+    incident_key: str,
+) -> IncidentTransition | None:
+    for record in reversed(records):
+        transition_payload = record.get("transition")
+        if not isinstance(transition_payload, dict):
+            continue
+        if transition_payload.get("incident_key") != incident_key:
+            continue
+        return _incident_transition_from_dict(transition_payload)
+    return None
 
 
 def _idempotency_key(
