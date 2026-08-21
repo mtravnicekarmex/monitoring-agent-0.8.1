@@ -40,7 +40,9 @@ report/prompt rendering, and the `O_EMAIL`/`O_APP`/
 draft/fallback interpretation source. Commit
 `3e7b94e9045527a1254b10066a3a34493577f025` adds item 7
 shadow-pilot comparison source and regenerated manifest files with 20
-declared runtime files.
+declared runtime files. Later item-7 commits add runtime shadow incident
+persistence, the env-v2 external-web compatibility fix, and the file-based
+shadow-pilot comparison CLI used to prepare the reviewed-period comparison.
 
 Before pulling changed source on the supervision station:
 
@@ -396,6 +398,72 @@ This source preflight does not complete the real item-7 shadow pilot. Item 7
 requires a reviewed operating period, a written comparison against the current
 alerts, and separate approval before any legacy alert is replaced, disabled,
 rerouted, downgraded, or suppressed.
+
+## File-only orchestrator CLI
+
+`monitoring_agent/orchestrator.py` and
+`python -m monitoring_agent.orchestrator_cli` implement the first
+file-only/shadow-only orchestrator proof. The CLI consumes only a supplied
+registry JSON file and supplied sanitized source snapshot files. It does not
+poll endpoints, read `.env`, send email, call interpretation providers,
+mutate state, control processes, register tasks, or replace alerts.
+
+The registry is static; there is no dynamic discovery. Every enabled agent
+entry must define a stable `agent_key`, `agent_kind`, `location`,
+`payload_kind`, supported contract-version range, source file, and
+`stale_after_seconds`. Duplicate `agent_key` values fail closed before a
+snapshot is produced. Source files named `.env` are rejected.
+
+Supported file-only payload kinds are:
+
+- `agent_snapshot_v1`: already-normalized sanitized orchestrator source
+  snapshot;
+- `local_agent_facade_v1`: sanitized local-agent facade response;
+- `remote_agent_audit_v8`: sanitized remote monitoring-agent audit summary.
+
+Remote `run_monitoring_agent.py --audit-state` output does not include a
+capture timestamp by itself. Before passing that JSON to the orchestrator,
+wrap it with the file-only export helper so `captured_at` is explicit:
+
+```powershell
+python -m monitoring_agent.orchestrator_export_cli wrap-remote-audit `
+  --input ".\artifacts\remote-audit-raw.json" `
+  --output ".\artifacts\remote-audit.json"
+```
+
+The helper accepts stdin when `--input` is omitted and writes wrapped JSON to
+stdout when `--output` is omitted. It rejects `.env` paths, requires
+`event="agent_state_audit"`, adds only `captured_at`, and does not poll
+endpoints, read `.env`, send email, mutate state, or control tasks.
+
+Run a file-only correlation:
+
+```powershell
+python -m monitoring_agent.orchestrator_cli run `
+  --registry-file ".\artifacts\orchestrator-registry.json" `
+  --json-output ".\artifacts\orchestrator-snapshot.json" `
+  --markdown-output ".\artifacts\orchestrator-snapshot.md"
+```
+
+The output is a bounded orchestrator snapshot with normalized agent rollups,
+freshness, evidence gaps, aggregate counts, sanitized payload digests, and
+correlation findings. A missing, stale, or contract-invalid source is isolated
+to that source and reported with a bounded evidence gap. The orchestrator
+output is operator context only; legacy alerts remain authoritative.
+
+On the main workstation, export the local sanitized facade aggregates for a
+file-only pilot:
+
+```powershell
+python scripts\export_monitoring_orchestrator_local_inputs.py `
+  --artifact-dir ".\artifacts\monitoring\orchestrator\2026-08-18-file-only-pilot"
+```
+
+Without a supplied remote audit this writes a local-only registry for
+preflight. It is not the full three-surface pilot. After wrapping a sanitized
+remote `run_monitoring_agent.py --audit-state` JSON file with
+`orchestrator_export_cli wrap-remote-audit`, run the same helper with
+`--remote-audit-file` pointing to the wrapped file to write the full registry.
 
 ## Runtime shadow incident persistence
 
