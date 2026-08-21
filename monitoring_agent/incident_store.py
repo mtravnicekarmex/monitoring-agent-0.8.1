@@ -489,6 +489,98 @@ class IncidentStateStore:
         self._write_snapshot(next_snapshot)
         return next_snapshot
 
+    def skip_pending_delivery_intents(
+        self,
+        *,
+        now: datetime | None = None,
+        limit: int = 10,
+        idempotency_key: str | None = None,
+        incident_key: str | None = None,
+        report_reference: str | None = None,
+        created_before: datetime | None = None,
+        reason_code: str = "operator_skipped",
+    ) -> tuple[OutboxItem, ...]:
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+            raise ValueError("skip limit must be a positive integer")
+        normalized_idempotency_key = _normalize_optional_filter(
+            idempotency_key,
+            context="idempotency key filter",
+        )
+        normalized_incident_key = _normalize_optional_filter(
+            incident_key,
+            context="incident key filter",
+        )
+        normalized_report_reference = _normalize_optional_filter(
+            report_reference,
+            context="report reference filter",
+        )
+        if created_before is not None:
+            _require_aware_datetime(created_before, context="created_before")
+            created_before = created_before.astimezone(timezone.utc)
+        if (
+            normalized_idempotency_key is None
+            and normalized_incident_key is None
+            and normalized_report_reference is None
+            and created_before is None
+        ):
+            raise ValueError("skip requires at least one exact filter or cutoff")
+        skipped_at = _utc_now() if now is None else now
+        _require_aware_datetime(skipped_at, context="skipped_at")
+        normalized_reason = _normalize_error_code(reason_code)
+        snapshot = self.load()
+        selected: list[OutboxItem] = []
+        updated_items: list[OutboxItem] = []
+        for item in sorted(
+            snapshot.outbox_items,
+            key=lambda candidate: (candidate.created_at, candidate.idempotency_key),
+        ):
+            if (
+                len(selected) < limit
+                and item.status == OUTBOX_PENDING
+                and (
+                    normalized_idempotency_key is None
+                    or item.idempotency_key == normalized_idempotency_key
+                )
+                and (
+                    normalized_incident_key is None
+                    or item.incident_key == normalized_incident_key
+                )
+                and (
+                    normalized_report_reference is None
+                    or item.report_reference == normalized_report_reference
+                )
+                and (
+                    created_before is None
+                    or item.created_at < created_before
+                )
+            ):
+                skipped = replace(
+                    item,
+                    status=OUTBOX_DEAD_LETTER,
+                    updated_at=skipped_at,
+                    next_attempt_at=skipped_at,
+                    last_error_code=normalized_reason,
+                    claimed_at=None,
+                    claim_id=None,
+                )
+                selected.append(skipped)
+                updated_items.append(skipped)
+            else:
+                updated_items.append(item)
+        if selected:
+            retained_outbox = _retain_outbox_items(
+                updated_items,
+                max_items=self._limits.max_outbox_items,
+            )
+            self._write_snapshot(
+                replace(
+                    snapshot,
+                    outbox_items=tuple(retained_outbox),
+                    updated_at=skipped_at,
+                )
+            )
+        return tuple(selected)
+
     def _write_snapshot(self, snapshot: IncidentStoreSnapshot) -> None:
         _validate_snapshot_limits(snapshot, limits=self._limits)
         self._state_dir.mkdir(parents=True, exist_ok=True)

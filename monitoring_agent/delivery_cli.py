@@ -21,7 +21,12 @@ from .delivery import (
     validate_outlook_email_environment,
     validate_test_delivery_policy,
 )
-from .incident_store import IncidentStateStore, OUTBOX_PENDING
+from .incident_store import (
+    OUTBOX_DEAD_LETTER,
+    OUTBOX_PENDING,
+    OUTBOX_SENT,
+    IncidentStateStore,
+)
 from .client import CURRENT_ENDPOINT_KEYS
 from .incidents import (
     CycleSnapshot,
@@ -31,9 +36,11 @@ from .incidents import (
 
 
 CONFIRM_SEND_TEST_DELIVERY = "SEND_TEST_DELIVERY"
+CONFIRM_SKIP_PENDING_OUTBOX = "SKIP_PENDING_OUTBOX"
 CONFIRM_PREPARE_SYNTHETIC_STATE = "PREPARE_SYNTHETIC_DELIVERY_TEST_STATE"
 DEFAULT_RECIPIENT_ENV = "DELIVERY_TEST_RECIPIENT"
 DEFAULT_SMTP_SENDER_ALIAS_ENV = "DELIVERY_TEST_SENDER_ALIAS"
+OUTBOX_REVIEW_TERMINAL_STATUSES = {OUTBOX_DEAD_LETTER, OUTBOX_SENT}
 
 
 class DeliveryCliError(ValueError):
@@ -62,6 +69,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload = _review_outbox(args)
             _print_json(payload)
             return 0
+        if args.command == "skip-outbox":
+            payload = _skip_outbox(args)
+            _print_json(payload)
+            return (
+                0
+                if payload["status"] != DELIVERY_STATUS_CONFIGURATION_ERROR
+                else 2
+            )
         if args.command == "prepare-synthetic":
             payload = _prepare_synthetic(args)
             _print_json(payload)
@@ -114,6 +129,20 @@ def _build_parser() -> argparse.ArgumentParser:
     review_parser.add_argument("--limit", type=int, default=20)
     review_parser.add_argument("--incident-key", default=None)
     review_parser.add_argument("--report-reference", default=None)
+    review_parser.add_argument("--include-terminal", action="store_true")
+
+    skip_parser = subparsers.add_parser(
+        "skip-outbox",
+        help="Mark pending outbox items as operator-skipped without sending.",
+    )
+    skip_parser.add_argument("--state-dir", type=Path, required=True)
+    skip_parser.add_argument("--confirm", required=True)
+    skip_parser.add_argument("--now", default=None)
+    skip_parser.add_argument("--limit", type=int, required=True)
+    skip_parser.add_argument("--created-before", default=None)
+    skip_parser.add_argument("--idempotency-key", default=None)
+    skip_parser.add_argument("--incident-key", default=None)
+    skip_parser.add_argument("--report-reference", default=None)
 
     prepare_parser = subparsers.add_parser(
         "prepare-synthetic",
@@ -264,7 +293,10 @@ def _review_outbox(args: argparse.Namespace) -> dict[str, object]:
     review_items = [
         item
         for item in outbox_items
-        if item.status != "sent"
+        if (
+            args.include_terminal
+            or item.status not in OUTBOX_REVIEW_TERMINAL_STATUSES
+        )
         and (
             args.incident_key is None
             or item.incident_key == str(args.incident_key)
@@ -298,6 +330,56 @@ def _review_outbox(args: argparse.Namespace) -> dict[str, object]:
         "status_counts": status_counts,
         "action_counts": action_counts,
         "truncated_item_count": max(0, len(review_items) - len(limited_items)),
+    }
+
+
+def _skip_outbox(args: argparse.Namespace) -> dict[str, object]:
+    if args.confirm != CONFIRM_SKIP_PENDING_OUTBOX:
+        return {
+            "delivery_adapter_version": DELIVERY_ADAPTER_VERSION,
+            "event": "monitoring_delivery_outbox_skip",
+            "error_code": "confirmation_required",
+            "status": DELIVERY_STATUS_CONFIGURATION_ERROR,
+        }
+    if args.limit < 1:
+        raise DeliveryCliError("skip_limit_must_be_positive")
+    created_before = _parse_optional_datetime(
+        args.created_before,
+        error_code="invalid_created_before",
+    )
+    if (
+        args.idempotency_key is None
+        and args.incident_key is None
+        and args.report_reference is None
+        and created_before is None
+    ):
+        raise DeliveryCliError("skip_filter_required")
+    now = _parse_now(args.now)
+    skipped = IncidentStateStore(args.state_dir).skip_pending_delivery_intents(
+        now=now,
+        limit=args.limit,
+        idempotency_key=args.idempotency_key,
+        incident_key=args.incident_key,
+        report_reference=args.report_reference,
+        created_before=created_before,
+        reason_code="operator_skipped",
+    )
+    return {
+        "delivery_adapter_version": DELIVERY_ADAPTER_VERSION,
+        "created_before": (
+            created_before.isoformat() if created_before is not None else None
+        ),
+        "event": "monitoring_delivery_outbox_skip",
+        "generated_at": now.isoformat(),
+        "idempotency_key": args.idempotency_key,
+        "incident_key": args.incident_key,
+        "items": [_review_item_to_dict(item, now=now) for item in skipped],
+        "reason_code": "operator_skipped",
+        "report_reference": args.report_reference,
+        "requested_limit": args.limit,
+        "skipped_count": len(skipped),
+        "status": "skipped" if skipped else "no_matching_pending_items",
+        "terminal_status": OUTBOX_DEAD_LETTER,
     }
 
 
@@ -440,6 +522,18 @@ def _parse_now(value: str | None) -> datetime:
         raise DeliveryCliError("invalid_now") from exc
     if resolved.tzinfo is None or resolved.utcoffset() is None:
         raise DeliveryCliError("invalid_now")
+    return resolved.astimezone(timezone.utc)
+
+
+def _parse_optional_datetime(value: str | None, *, error_code: str) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        resolved = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise DeliveryCliError(error_code) from exc
+    if resolved.tzinfo is None or resolved.utcoffset() is None:
+        raise DeliveryCliError(error_code)
     return resolved.astimezone(timezone.utc)
 
 

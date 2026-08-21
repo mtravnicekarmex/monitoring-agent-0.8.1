@@ -551,9 +551,15 @@ command and never prints the loaded values.
   prints only its SHA-256 hash for optional diagnostics.
 - `dry-run` validates the in-memory recipient policy and counts matching
   due outbox items without claiming, mutating, or sending.
-- `review-outbox` reads `incident_state.json` and prints a sanitized read-only
-  outbox summary for alert-email review. It does not read `.env`, does not
-  require a recipient, does not claim items, and does not call SMTP.
+- `review-outbox` reads `incident_state.json` and prints a sanitized
+  read-only outbox summary for alert-email review. It does not read `.env`,
+  does not require a recipient, does not claim items, and does not call SMTP.
+- `skip-outbox` marks explicitly selected pending outbox items as
+  operator-skipped without sending. It requires
+  `--confirm SKIP_PENDING_OUTBOX`, an exact filter or `--created-before`
+  cutoff, and a positive `--limit`. The persisted terminal status is the
+  existing `dead_letter` with `last_error_code="operator_skipped"` so the
+  `incident_state.json` schema and audit contract stay compatible.
 - `prepare-synthetic` creates one local synthetic outbox item plus a sanitized
   report file for a local end-to-end adapter test. It requires
   `--confirm PREPARE_SYNTHETIC_DELIVERY_TEST_STATE` and refuses to reuse an
