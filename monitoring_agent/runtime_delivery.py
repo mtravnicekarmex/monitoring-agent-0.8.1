@@ -270,49 +270,44 @@ def _render_runtime_delivery_report(
 ) -> str:
     state = snapshot.state_by_key().get(item.incident_key)
     state_lines = [
-        "Incident state: not present in current state snapshot.",
+        "Current incident state: not present in current state snapshot",
     ]
     if state is not None:
         state_lines = [
-            f"Incident state status: {state.status}",
+            f"Current incident state: {state.status}",
             f"Severity: {state.severity}",
-            f"Last reason: {state.last_reason}",
+            f"Subject: {state.subject}",
+            f"Kind: {state.kind}",
+            f"Last reason: {state.last_reason or '-'}",
+            f"Opened at: {_format_runtime_datetime(state.opened_at)}",
+            f"Recovered at: {_format_runtime_datetime(state.recovered_at)}",
+            f"Last observed at: {_format_runtime_datetime(state.last_observed_at)}",
+            f"Last cycle sequence: {state.last_cycle_sequence or '-'}",
             f"Failure count: {state.failure_count}",
             f"Recovery count: {state.recovery_count}",
             f"Occurrence count: {state.occurrence_count}",
-            (
-                "Last observed at: "
-                f"{state.last_observed_at.astimezone(timezone.utc).isoformat()}"
-            ),
         ]
     outbox_counts = _outbox_counts(snapshot)
     return "\n".join(
         [
-            "# Monitoring agent automatic TEST delivery",
+            "Monitoring agent event report",
+            "=============================",
             "",
             f"Generated at: {generated_at.astimezone(timezone.utc).isoformat()}",
             f"Incident key: {item.incident_key}",
             f"Action: {item.action}",
             f"Report reference: {item.report_reference}",
-            f"Idempotency key: {item.idempotency_key}",
             "",
-            "## Current incident facts",
+            "Current incident facts",
+            "----------------------",
             *state_lines,
             "",
-            "## Outbox counts before delivery",
+            "Outbox counts before delivery",
+            "-----------------------------",
             (
                 "pending={pending}, in_progress={in_progress}, sent={sent}, "
                 "dead_letter={dead_letter}"
             ).format(**outbox_counts),
-            "",
-            "## Safety boundary",
-            "This is automatic TEST delivery only.",
-            "The recipient is DELIVERY_TEST_RECIPIENT.",
-            "Legacy scheduler alerts remain authoritative.",
-            (
-                "No production recipient, alert replacement, process control, "
-                "remediation, or suppression is authorized."
-            ),
             "",
         ]
     )
@@ -326,6 +321,12 @@ def _outbox_counts(snapshot: IncidentStoreSnapshot) -> dict[str, int]:
         "sent": counts[OUTBOX_SENT],
         "dead_letter": counts[OUTBOX_DEAD_LETTER],
     }
+
+
+def _format_runtime_datetime(value: datetime | None) -> str:
+    if value is None:
+        return "-"
+    return value.astimezone(timezone.utc).isoformat()
 
 
 def _aggregate_result_status(results: tuple[DeliveryAttemptResult, ...]) -> str:

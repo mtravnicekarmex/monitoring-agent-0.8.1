@@ -2,7 +2,7 @@
   "authentication": "local-dotenv-bearer-to-digest-verified-facade",
   "bundle_name": "monitoring-agent",
   "bundle_version": "0.8.1-test-git",
-  "created_date": "2026-08-21",
+  "created_date": "2026-09-09",
   "files": [
     {
       "path": ".env.example",
@@ -46,8 +46,8 @@
     },
     {
       "path": "monitoring_agent/delivery.py",
-      "sha256": "1b9769d3e75afa6489de5ec3d54c845f45e36f02c6d4f7ab93fc3b72e3ce7f77",
-      "size": 19735
+      "sha256": "254037f2a5e99030f3be2325c5d16f5f52f9d5b35956f8db780e829d9dc9427d",
+      "size": 20213
     },
     {
       "path": "monitoring_agent/delivery_cli.py",
@@ -101,8 +101,8 @@
     },
     {
       "path": "monitoring_agent/runtime_delivery.py",
-      "sha256": "0bef5956a2a1f98df2d276910ab17cbb0f94a85e5a96c051c435956b8b340d9e",
-      "size": 11427
+      "sha256": "330dc4d118c6bad3648314c413a8dc1f06a47d989ffd546a1c768a7d906099cb",
+      "size": 11496
     },
     {
       "path": "monitoring_agent/runtime_shadow.py",

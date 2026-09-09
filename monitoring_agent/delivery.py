@@ -37,6 +37,11 @@ DELIVERY_ERROR_CONFIRMATION_REQUIRED = "confirmation_required"
 DEFAULT_TEST_SUBJECT_PREFIX = "[monitoring-agent-test]"
 DEFAULT_MAX_SUBJECT_CHARS = 160
 DEFAULT_MAX_BODY_CHARS = 12_000
+DELIVERY_ACTION_LABELS = {
+    "opened": "ALERT OPENED",
+    "reopened": "ALERT REOPENED",
+    "recovered": "ALERT RECOVERED",
+}
 OUTLOOK_EMAIL_ENV_KEY = "O_EMAIL"
 OUTLOOK_APP_ENV_KEY = "O_APP"
 LEGACY_EMAIL_ENV_KEY = "EMAIL"
@@ -259,9 +264,13 @@ def build_test_delivery_envelope(
 ) -> DeliveryEnvelope:
     recipient = _require_test_recipient(policy)
     recipient_hash = hash_delivery_recipient(recipient)
-    subject = _bounded_text(
+    action_label = DELIVERY_ACTION_LABELS.get(
+        outbox_item.action,
+        outbox_item.action.upper(),
+    )
+    subject = _bounded_subject(
         (
-            f"{policy.subject_prefix.strip()} {outbox_item.action} "
+            f"{policy.subject_prefix.strip()} {action_label}: "
             f"{outbox_item.incident_key}"
         ),
         max_chars=policy.max_subject_chars,
@@ -270,16 +279,30 @@ def build_test_delivery_envelope(
     body = _bounded_text(
         "\n".join(
             [
-                "Monitoring agent controlled TEST delivery.",
+                f"{action_label}: {outbox_item.incident_key}",
+                "Monitoring agent controlled TEST delivery",
+                "=" * 42,
+                "",
+                "Summary",
+                "-------",
+                f"Incident: {outbox_item.incident_key}",
+                f"Action: {outbox_item.action}",
+                f"Report reference: {outbox_item.report_reference}",
+                f"Idempotency key: {outbox_item.idempotency_key}",
+                "",
+                "Details",
+                "-------",
+                sanitized_report.rstrip(),
+                "",
+                "Boundary",
+                "--------",
+                "This is automatic TEST delivery only.",
+                "The recipient is DELIVERY_TEST_RECIPIENT.",
                 "Legacy scheduler alerts remain authoritative.",
-                "This message does not authorize remediation or alert replacement.",
-                "",
-                f"incident_key: {outbox_item.incident_key}",
-                f"action: {outbox_item.action}",
-                f"report_reference: {outbox_item.report_reference}",
-                f"idempotency_key: {outbox_item.idempotency_key}",
-                "",
-                sanitized_report,
+                (
+                    "No production recipient, alert replacement, process control, "
+                    "remediation, or suppression is authorized."
+                ),
                 "",
             ]
         ),
@@ -532,6 +555,15 @@ def _bounded_text(text: str, *, max_chars: int) -> str:
     if max_chars <= len(marker):
         return marker[:max_chars]
     return text[: max_chars - len(marker)].rstrip() + marker
+
+
+def _bounded_subject(text: str, *, max_chars: int) -> str:
+    normalized = " ".join(text.split())
+    if len(normalized) <= max_chars:
+        return normalized
+    if max_chars <= 1:
+        return normalized[:max_chars]
+    return normalized[: max_chars - 1].rstrip() + "…"
 
 
 def _require_aware_datetime(value: datetime, *, context: str) -> None:
