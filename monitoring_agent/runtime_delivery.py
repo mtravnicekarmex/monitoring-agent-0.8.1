@@ -269,6 +269,7 @@ def _render_runtime_delivery_report(
     generated_at: datetime,
 ) -> str:
     state = snapshot.state_by_key().get(item.incident_key)
+    diagnosis = _incident_operator_diagnosis(item, state)
     state_lines = [
         "Current incident state: not present in current state snapshot",
     ]
@@ -298,6 +299,18 @@ def _render_runtime_delivery_report(
             f"Action: {item.action}",
             f"Report reference: {item.report_reference}",
             "",
+            "Co se stalo",
+            "------------",
+            diagnosis["what_happened"],
+            "",
+            "Co je potreba opravit",
+            "----------------------",
+            diagnosis["what_to_fix"],
+            "",
+            "Proc agent poslal alert",
+            "-----------------------",
+            diagnosis["why_alerted"],
+            "",
             "Current incident facts",
             "----------------------",
             *state_lines,
@@ -311,6 +324,158 @@ def _render_runtime_delivery_report(
             "",
         ]
     )
+
+
+def _incident_operator_diagnosis(
+    item: OutboxItem,
+    state: object | None,
+) -> dict[str, str]:
+    subject = getattr(state, "subject", None) or _subject_from_incident_key(
+        item.incident_key
+    )
+    kind = getattr(state, "kind", None) or _kind_from_incident_key(item.incident_key)
+    reason = getattr(state, "last_reason", None) or "not_available"
+    action = item.action
+
+    return {
+        "what_happened": _incident_what_happened(
+            action=action,
+            kind=str(kind),
+            subject=str(subject),
+            reason=str(reason),
+        ),
+        "what_to_fix": _incident_what_to_fix(
+            kind=str(kind),
+            subject=str(subject),
+            reason=str(reason),
+        ),
+        "why_alerted": _incident_why_alerted(action=action, reason=str(reason)),
+    }
+
+
+def _incident_what_happened(
+    *,
+    action: str,
+    kind: str,
+    subject: str,
+    reason: str,
+) -> str:
+    action_text = {
+        "opened": "Agent otevrel novy potvrzeny incident.",
+        "reopened": "Agent znovu otevrel drive vyreseny incident.",
+        "recovered": "Agent potvrdil obnovu sluzby.",
+    }.get(action, f"Agent zaznamenal akci incidentu: {action}.")
+    if action == "recovered":
+        return f"{action_text} Dotcena oblast: {subject}."
+    if kind == "endpoint":
+        return (
+            f"{action_text} Kontrola '{subject}' opakovane nevysla v poradku. "
+            f"Posledni duvod: {_human_reason(reason)}."
+        )
+    if kind == "target_wide":
+        return (
+            f"{action_text} Vice sledovanych facade endpointu ma transportni "
+            f"selhani. Posledni duvod: {_human_reason(reason)}."
+        )
+    if kind == "observer":
+        return (
+            f"{action_text} Problem je na strane dohledoveho agenta nebo jeho "
+            f"pristupu k monitoring facade. Posledni duvod: {_human_reason(reason)}."
+        )
+    if kind == "blind_spot":
+        return (
+            f"{action_text} Agent nema cerstvy dokonceny kontrolni cyklus. "
+            f"Posledni duvod: {_human_reason(reason)}."
+        )
+    return f"{action_text} Dotcena oblast: {subject}. Posledni duvod: {_human_reason(reason)}."
+
+
+def _incident_what_to_fix(*, kind: str, subject: str, reason: str) -> str:
+    if kind == "endpoint":
+        if subject == "system_scheduler":
+            return (
+                "Zkontroluj Scheduler Health v hlavnim dashboardu a oprav konkretni "
+                "job nebo scheduler krok, ktery drzi endpoint ve stavu degraded/error."
+            )
+        if subject == "system_database":
+            return (
+                "Zkontroluj dostupnost PostgreSQL/MSSQL a stav databazove health "
+                "facade na hlavni stanici."
+            )
+        if subject == "system_runtime":
+            return (
+                "Zkontroluj runtime hlavni aplikace, proces scheduleru/API a jejich "
+                "health endpointy."
+            )
+        if subject == "system_proxy":
+            return "Zkontroluj proxy/Caddy vrstvu a pruchod requestu na backend."
+        if subject == "external_web":
+            return "Zkontroluj verejnou dostupnost webu z dohledove stanice."
+        if subject in {"live", "ready"}:
+            return "Zkontroluj FastAPI health endpoint a dostupnost aplikace."
+        return f"Zkontroluj sledovany endpoint '{subject}' a jeho health detail."
+    if kind == "target_wide":
+        return (
+            "Zkontroluj sitovou dostupnost hlavni stanice, proxy/Caddy, FastAPI a "
+            "monitoring facade; selhani vypada sirsi nez jeden endpoint."
+        )
+    if kind == "observer":
+        return (
+            "Zkontroluj konfiguraci dohledoveho agenta, bearer pristup k facade, "
+            "cas systemu a dostupnost hlavni stanice z dohledove stanice."
+        )
+    if kind == "blind_spot":
+        return (
+            "Zkontroluj, ze Scheduled Task MonitoringAgentTest bezi a agent zapisuje "
+            "dokoncene cykly do sveho state store."
+        )
+    if reason.startswith("endpoint_payload_status:"):
+        return "Oprav stav sluzby, ktera vraci varovny nebo chybovy payload status."
+    return "Zkontroluj detail incidentu ve state store a navazujici dashboard health detail."
+
+
+def _incident_why_alerted(*, action: str, reason: str) -> str:
+    if action == "recovered":
+        return "Incident splnil recovery prah a agent posila informaci o obnoveni."
+    if reason == "recovery_confirmation_pending":
+        return "Agent ceka na dostatek zdravych cyklu pro potvrzeni obnovy."
+    return (
+        "Incident splnil potvrzovaci pravidla stinoveho incident enginu. "
+        f"Normalizovany duvod: {reason}."
+    )
+
+
+def _human_reason(reason: str) -> str:
+    if reason.startswith("endpoint_payload_status:"):
+        status = reason.split(":", 1)[1] or "unknown"
+        return f"endpoint vratil payload status '{status}'"
+    if reason == "endpoint_retryable_transport_failure":
+        return "HTTP kontrola selhala transportne i po retry"
+    if reason == "all_facade_endpoints_retryable_transport_failure":
+        return "vsechny facade endpointy mely retryable transportni selhani"
+    if reason.startswith("facade_contract_or_authentication_failure:"):
+        return "facade vratila neplatny kontrakt nebo autentizace selhala"
+    if reason == "latest_cycle_stale":
+        return "posledni dokonceny cyklus je prilis stary"
+    if reason == "no_complete_cycle_observed":
+        return "agent zatim nema dokonceny cyklus"
+    if reason == "recovery_confirmed":
+        return "obnova byla potvrzena"
+    if reason == "not_available":
+        return "detailni duvod neni v aktualnim snapshotu dostupny"
+    return reason
+
+
+def _subject_from_incident_key(incident_key: str) -> str:
+    if ":" not in incident_key:
+        return incident_key
+    return incident_key.split(":", 1)[1]
+
+
+def _kind_from_incident_key(incident_key: str) -> str:
+    if ":" not in incident_key:
+        return "unknown"
+    return incident_key.split(":", 1)[0]
 
 
 def _outbox_counts(snapshot: IncidentStoreSnapshot) -> dict[str, int]:
