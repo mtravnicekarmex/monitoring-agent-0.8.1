@@ -2,47 +2,47 @@
   "authentication": "local-dotenv-bearer-to-digest-verified-facade",
   "bundle_name": "monitoring-agent",
   "bundle_version": "0.8.1-test-git",
-  "created_date": "2026-09-09",
+  "created_date": "2026-10-08",
   "files": [
     {
       "path": ".env.example",
-      "sha256": "88bf25bb8d0d980d4d73ff26960e801c631c8e37409aba0d02ecb685023a6f51",
-      "size": 1616
+      "sha256": "4fcf8af288bb2fc229ee0d4522c0d263080606190532a3b3ab2baf844649371c",
+      "size": 1702
     },
     {
       "path": ".gitignore",
-      "sha256": "c7bdd35320463c753fb28961dbb885ce9636d60c2713065e247e1098bc3cc584",
-      "size": 104
+      "sha256": "e4924a6e050e0769863bab798e453493383ceeb636727ca2210cf24d70c45470",
+      "size": 95
     },
     {
       "path": "run_monitoring_agent.py",
-      "sha256": "c6cea9172db85bb8fe86657a0d9a82cf62c8daef500cd9c2329bf595b36ff669",
-      "size": 247
+      "sha256": "a705d1861a06b37ed3c759c3332dc270a37bfd712d132a467daa518393092d6d",
+      "size": 236
     },
     {
       "path": "register_monitoring_agent_task.ps1",
-      "sha256": "66372be1b4f4cc5f180d4c03d56477028d25e5ca1dc3fd189fde0f14947d9476",
-      "size": 2051
+      "sha256": "1bdb8e02e716c97f580cb1a0101ac8bfa0c58d385f09bccd0e9527683f7a330d",
+      "size": 1990
     },
     {
       "path": "monitoring_agent/__init__.py",
-      "sha256": "4b5ee774270f6a723e6b9a89cd00ec4bdf549c10e8fc6b2ed0ac626bdbb1e6e5",
-      "size": 3768
+      "sha256": "9695f613de0f029bbb6ab6d11136d963432ac959a97e8111be9a620e64ca52c6",
+      "size": 3642
     },
     {
       "path": "monitoring_agent/__main__.py",
-      "sha256": "9b8cbc6eac5e2fb826d2b09b038c47b3f8a8141ef11f25e31d9c32574672f355",
-      "size": 7359
+      "sha256": "5bebb42724697579fd3b5f95ec9417e2c01d6f2cdddc3c64558895d9b64b9768",
+      "size": 7431
     },
     {
       "path": "monitoring_agent/audit.py",
-      "sha256": "c66e103323e5ad6e21bd1849a775a1a21135366cafeed703ced75fe23204b701",
-      "size": 52640
+      "sha256": "abad6840ef6f6b2a0c5dce0a52dacb29bc65fba448129922c208fc33ea4c3943",
+      "size": 51689
     },
     {
       "path": "monitoring_agent/client.py",
-      "sha256": "50a784d1502d34c659760eb1ddc41476c4991e83f45d0d0e5656408a2070ddc4",
-      "size": 43066
+      "sha256": "16f544ee9b3887f8820ae504c9c587c5b8410cc846efa90ff277115f0370ebc6",
+      "size": 41860
     },
     {
       "path": "monitoring_agent/delivery.py",
@@ -51,28 +51,28 @@
     },
     {
       "path": "monitoring_agent/delivery_cli.py",
-      "sha256": "7bfc98aada3aeb12ed9055dcf9837ed2a98dafd1d9791f68dd060905faaf6803",
-      "size": 23052
+      "sha256": "93c594b4d34bf9a4a8277c8e8e57bc2bf6b9132a151c7317b9fbefbc1fc9c1dc",
+      "size": 22669
     },
     {
       "path": "monitoring_agent/incident_store.py",
-      "sha256": "63d30c65579d52b7ff5f6256cdd781749d72ec7f8112d88f1c1f6f7ad3e05d8b",
-      "size": 39900
+      "sha256": "389abcdaa3b3b475ab826ad86c711c2dafd6cced56ea6b1e2168b8e4eea4c7f3",
+      "size": 38900
     },
     {
       "path": "monitoring_agent/incidents.py",
-      "sha256": "f3e40883c38c1cb7d9804d6807c37ce76f3075b021eda3b05c1f4dc9e11917dc",
-      "size": 32370
+      "sha256": "643a8bc703628b2d9ca081e24732182ca1506e096a336ea45662dc57ff78d808",
+      "size": 31465
     },
     {
       "path": "monitoring_agent/interpretation.py",
-      "sha256": "6a055a5e46cbdeee506e122bb4ac02f881bab928a52c111dba3100065f557c89",
-      "size": 21644
+      "sha256": "95dcbe0a117a0bfb4cecdac1749ff5434dbb9782bfb69270490819fa7aae5ef3",
+      "size": 21068
     },
     {
       "path": "monitoring_agent/observer.py",
-      "sha256": "bbbf72669f3a5aa346670b8ad32e312d0cc135be4b55a3371a6503d0b9e64169",
-      "size": 1756
+      "sha256": "bf70208f4eb2b3ab3d237c71d216e80978aa9a7af7ef7697fc5640e32fd2a0ce",
+      "size": 1704
     },
     {
       "path": "monitoring_agent/orchestrator.py",
@@ -91,13 +91,13 @@
     },
     {
       "path": "monitoring_agent/reporting.py",
-      "sha256": "f53701c49f2470eaff3d0e7a99161f99553467db7fb4c9d7b98c22230ac2fe08",
-      "size": 21700
+      "sha256": "69958d86883822d32a805599365fde76c96e16952118d55276f8595f3eec9f61",
+      "size": 21090
     },
     {
       "path": "monitoring_agent/README.md",
-      "sha256": "b6ca733e057b89423c0a18950e4247e4df68b94b477bb389683e0a1d70c23994",
-      "size": 37035
+      "sha256": "0d0b858b0e204609c7b740be2420e07cf7e1b3ee5cdf0f790bad0219870e3a43",
+      "size": 38552
     },
     {
       "path": "monitoring_agent/runtime_delivery.py",
@@ -106,35 +106,41 @@
     },
     {
       "path": "monitoring_agent/runtime_shadow.py",
-      "sha256": "56ec9eca355ed2b3253373705ef4d325b77414c516444dec0f9314937c5fefe7",
-      "size": 7092
+      "sha256": "cd35ef3417e0097b39db4ccb2aa082fe36c254cdab5675589feab561e189b522",
+      "size": 6935
     },
     {
       "path": "monitoring_agent/settings.py",
-      "sha256": "4f90843692d1c3413347df83010603d20dafc2d0eb97de996cc3ddc89ef0695a",
-      "size": 15840
+      "sha256": "542345a0b6e50be61018ab5ef87ee6ae0f605dfabd815d397277b255a1437351",
+      "size": 16172
     },
     {
       "path": "monitoring_agent/shadow_pilot.py",
-      "sha256": "38dff5016b2459b758ca235aa67bcfede81fec091d6c39556cae1303c110e984",
-      "size": 41232
+      "sha256": "b3c2902bc3bc7d9e21b3a793666c9573bd11ded4450ae88d984bce01d236680a",
+      "size": 40165
     },
     {
       "path": "monitoring_agent/shadow_pilot_cli.py",
-      "sha256": "bebf710c0330667692a836cab67a2546845b11bf30b57c59b0dcb087612d8a57",
-      "size": 7511
+      "sha256": "ac4530176f3953122955012792f7edf65d0122bc64f8435c59f749c7c3be2cf6",
+      "size": 7305
     },
     {
       "path": "monitoring_agent/store.py",
-      "sha256": "89d49d422c0afac68c08a1f17f0ee133d93684ba34769848f5c3d69397c1bd83",
-      "size": 11593
+      "sha256": "32408b89688e532ace70ea60b62691c4639623be54cd69e892303f00cc07e473",
+      "size": 11279
     },
     {
       "path": "monitoring_agent/synthetic_server.py",
-      "sha256": "22ba7a39685f3868641b3c4b80b09ed942e21f64cc41c709d1239793bbc5d22e",
-      "size": 11156
+      "sha256": "54388c32aded9ab9830c2e569a056e2ffde33c17e1d22b5b0dd392a41b6a570c",
+      "size": 10823
+    },
+    {
+      "path": "monitoring_agent/poll_schedule.py",
+      "sha256": "c546b8fbbfeaf32aa4972937b7a4716609896c50568314577bf69d0f3737c1d4",
+      "size": 968
     }
   ],
+  "integrity_basis": "git-blob",
   "mode": "test",
   "python": ">=3.14"
 }

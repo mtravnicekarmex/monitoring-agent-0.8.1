@@ -395,10 +395,7 @@ def build_state_audit(settings: RuntimeSettings) -> dict[str, object]:
                     )
                     if cycle.started_at < previous_cycle.finished_at:
                         overlap_count += 1
-                    expected_minimum = max(
-                        settings.poll_interval_seconds,
-                        previous_cycle.duration_seconds,
-                    )
+                    expected_minimum = _expected_cycle_interval(previous_cycle, settings)
                     interval_diagnostic = _build_interval_diagnostic(
                         ending_cycle_index=complete_cycle_count,
                         interval_seconds=interval,
@@ -501,6 +498,7 @@ def build_state_audit(settings: RuntimeSettings) -> dict[str, object]:
             "retry_backoff_seconds": settings.retry_backoff_seconds,
             "poll_interval_seconds": settings.poll_interval_seconds,
             "poll_jitter_seconds": settings.poll_jitter_seconds,
+            "poll_align_quarter_hour": settings.poll_align_quarter_hour,
             "configured_timeout_cycle_budget_seconds": _rounded(
                 configured_timeout_cycle_budget
             ),
@@ -677,6 +675,14 @@ def _configured_timeout_cycle_budget(
     )
 
 
+def _expected_cycle_interval(previous_cycle: _CycleSummary, settings: RuntimeSettings) -> float:
+    if settings.poll_align_quarter_hour:
+        from .poll_schedule import next_quarter_hour
+
+        return next_quarter_hour(previous_cycle.finished_at.timestamp()) - previous_cycle.started_at.timestamp()
+    return max(settings.poll_interval_seconds, previous_cycle.duration_seconds)
+
+
 def _build_interval_diagnostic(
     *,
     ending_cycle_index: int,
@@ -684,10 +690,7 @@ def _build_interval_diagnostic(
     previous_cycle: _CycleSummary,
     settings: RuntimeSettings,
 ) -> _IntervalDiagnostic:
-    expected_minimum = max(
-        settings.poll_interval_seconds,
-        previous_cycle.duration_seconds,
-    )
+    expected_minimum = _expected_cycle_interval(previous_cycle, settings)
     allowed_maximum = (
         expected_minimum
         + settings.poll_jitter_seconds

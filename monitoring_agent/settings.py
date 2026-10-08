@@ -90,6 +90,7 @@ class RuntimeSettings:
     outbox_claim_timeout_seconds: float
     bearer_credential: str = field(repr=False)
     delivery_automation_enabled: bool = False
+    poll_align_quarter_hour: bool = False
 
     @classmethod
     def load(cls, path: Path) -> RuntimeSettings:
@@ -257,6 +258,13 @@ class RuntimeSettings:
         ):
             raise ValueError("MONITORING_AGENT_BEARER_TOKEN has an invalid format")
         delivery_automation_enabled = _read_delivery_automation_enabled(env_path)
+        alignment_values = _read_non_monitoring_keys(env_path, {"POLL_ALIGN_QUARTER_HOUR"})
+        alignment = alignment_values.get("POLL_ALIGN_QUARTER_HOUR", "false").lower()
+        if alignment not in {"true", "false"}:
+            raise ValueError("POLL_ALIGN_QUARTER_HOUR must be either true or false")
+        poll_align_quarter_hour = alignment == "true"
+        if poll_align_quarter_hour and (poll_interval_seconds != 900 or poll_jitter_seconds != 0):
+            raise ValueError("quarter-hour alignment requires poll interval 900 and jitter 0")
 
         return cls(
             env_contract_version=env_version,
@@ -284,6 +292,7 @@ class RuntimeSettings:
             outbox_claim_timeout_seconds=outbox_claim_timeout_seconds,
             bearer_credential=bearer_credential,
             delivery_automation_enabled=delivery_automation_enabled,
+            poll_align_quarter_hour=poll_align_quarter_hour,
         )
 
     def safe_summary(self) -> dict[str, object]:

@@ -11,6 +11,7 @@ from .audit import StateAuditError, build_state_audit
 from .client import HealthClient
 from .incident_store import IncidentStoreError
 from .observer import run_observation_cycle
+from .poll_schedule import wait_for_quarter_hour
 from .runtime_delivery import run_runtime_delivery
 from .runtime_shadow import (
     apply_shadow_incident_cycle,
@@ -77,6 +78,8 @@ def _run_polling_process(
     cycle_sequence = 0
     try:
         while True:
+            if settings.poll_align_quarter_hour and not args.once:
+                wait_for_quarter_hour()
             cycle_sequence += 1
             cycle_started = time.monotonic()
             observations = run_observation_cycle(
@@ -129,6 +132,8 @@ def _run_polling_process(
             if args.once:
                 exit_reason = "once_completed"
                 return 0
+            if settings.poll_align_quarter_hour:
+                continue
             time.sleep(
                 calculate_next_cycle_delay(
                     poll_interval_seconds=settings.poll_interval_seconds,

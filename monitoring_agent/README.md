@@ -698,6 +698,46 @@ new reviewed bundle version and hash.
 
 ## Source-repository verification
 
+### Clock-aligned quarter-hour polling
+
+For checks starting at `hh:00`, `hh:15`, `hh:30`, and `hh:45` (one minute
+before the platform's quarter-hour job), retain the continuous startup task
+and change only these non-secret values in the existing local `.env`:
+
+```dotenv
+MONITORING_AGENT_POLL_INTERVAL_SECONDS=900.0
+MONITORING_AGENT_POLL_JITTER_SECONDS=0.0
+POLL_ALIGN_QUARTER_HOUR=true
+```
+
+The optional non-prefixed switch defaults to false and is compatible with
+env contracts 1, 2, and 3. Invalid combinations fail configuration validation.
+The agent waits for the next boundary before its first continuous cycle;
+`--once` remains immediate and must never be run concurrently with the task.
+The single writer lock remains held while waiting. Overruns skip elapsed slots;
+clock changes are rechecked every 30 seconds. UTC boundaries preserve Prague
+quarter-hour minute slots across both DST transitions. Completion before the
+platform job is not guaranteed when endpoints respond slowly.
+
+Audit v8 reports the alignment flag. Timing aggregates retain historical
+observations and evaluate them against the selected current configuration;
+historical 300-second runs can therefore appear as early intervals after this
+migration. Long aligned cycles are evaluated against their next future slot.
+Do not delete retained evidence to remove those historical findings.
+Incident confirmation/recovery rules stay independent and unchanged; their
+cycle-count thresholds now take longer in elapsed time. Controlled test email
+delivery still runs at most once after each completed cycle.
+
+The 2026-10-08 Git manifest hashes normalized Git blob bytes, not the
+checkout's platform-dependent line endings. Verify it against `git show
+HEAD:<path>`; the original release ZIP manifest remains separate evidence.
+
+Stop the existing task, verify that its launcher/interpreter tree has exited,
+pull the reviewed source, edit these three values without replacing the real
+`.env` or state, run `--check-config`, and start the existing task. While it is
+running use only `--check-config` or `--audit-state` for concurrent inspection.
+Do not register a separate task that launches one writer per quarter-hour.
+
 Run this before packaging from the full source repository. The standalone
 remote project does not include the test suite.
 
